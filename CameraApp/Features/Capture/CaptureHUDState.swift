@@ -58,7 +58,13 @@ final class CaptureHUDState {
 
     /// Async protocol members only (`startSession`) — awaiting from
     /// @MainActor never blocks main (the service hops internally).
-    private let service: any CameraServiceProtocol
+    ///
+    /// `nonisolated(unsafe)`: written exactly once from the nonisolated init
+    /// (assigned before any other access), afterwards only read from
+    /// @MainActor members — the plain `nonisolated` form is not available
+    /// because `any CameraServiceProtocol` is not Sendable. The service's own
+    /// internal session queue confines its hardware state.
+    nonisolated(unsafe) private let service: any CameraServiceProtocol
 
     /// Sync members, executed off-main by the gate.
     private let controls: CameraControlGate
