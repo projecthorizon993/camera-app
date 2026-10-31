@@ -13,12 +13,23 @@ struct RootView: View {
 
     var body: some View {
         NavigationStack(path: $router.path) {
-            ViewfinderPlaceholder(router: router)
+            viewfinder
                 .requirePermissions([.camera])
                 .navigationDestination(for: AppScreen.self) { screen in
                     destination(for: screen)
                 }
         }
+    }
+
+    /// The live viewfinder (Task 7). The permission gate stays OUTSIDE/above
+    /// (applied at the root of the stack, Task 3) — not duplicated here.
+    private var viewfinder: some View {
+        ViewfinderScreen(
+            service: environment.cameraService,
+            renderer: environment.renderer,
+            router: router,
+            environment: environment
+        )
     }
 
     // MARK: - Navigation destinations
@@ -27,9 +38,9 @@ struct RootView: View {
     private func destination(for screen: AppScreen) -> some View {
         switch screen {
         case .viewfinder:
-            // Camera permission is app-wide and already gated at the root of
-            // the stack; no second gate here.
-            ViewfinderPlaceholder(router: router)
+            // Same screen as the root; camera permission is app-wide and
+            // already gated at the root of the stack.
+            viewfinder
         case .gallery:
             GalleryPlaceholder()
         case .settings:
