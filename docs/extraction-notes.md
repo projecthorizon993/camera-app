@@ -149,8 +149,8 @@ files / 313.8 MiB**; top dirs `res` 1139, `META-INF` 130, `assets` 113,
   that satisfy the dimension heuristic) — these are **likely false positives**;
   confidence is reported per candidate and only tiled-LUT-shaped files are ever
   extracted. Not treated as vendor-B colour data.
-* `assets/models/solution.json.eng.enc` and `assets/dsp/libQnn*Skel.so`
-  (Qualcomm HTP skeletons) — model/DSP payloads, unrelated to LUTs.
+* `assets/models/solution.json.eng.enc` and the platform DSP vendor's
+  `*Skel.so` skeletons — model/DSP payloads, unrelated to LUTs.
 * `assets/Display P3.icc`, `*.json` UI assets, comparison JPEGs — not LUTs.
 
 **Conclusion: vendor B's colour maps are encrypted at rest and are out of scope
@@ -163,13 +163,13 @@ No cleartext lens/focal-profile table was found in either scanned tree.
 returned only **8 low-confidence `source_table` candidates** (large resource-id
 or unrelated numeric arrays; generated `R.java` is skipped). No Java-side LUT
 array was found — the colour data lives in the PNGs, not in source constants.
-The candidate homes for native tables are JNI libraries, e.g. (vendor A)
-`libMiFilterSDK.so`,
-`librender_engine.so`, `libwatermark_effect.so`, `libwm_native_tool.so`,
-`libcloud_watermark_native.so`; and in the additional phone dumps a dedicated
-filter-LUT JNI lib. Locating the exact float arrays requires static analysis of
-the binaries — **explicitly out of scope for 22a**. `scripts/ghidra_find_tables.py`
-is provided as a skeleton entry point.
+The candidate homes for native tables are JNI libraries, e.g. (vendor A) a
+filter-SDK `.so`, a render-engine `.so`, and several watermark `.so`s
+(effect / native-tool / cloud-native); the additional phone dumps include a
+dedicated filter-LUT JNI `.so`. Exact filenames are recorded in the
+out-of-repo implementer report, not here. Locating the exact float arrays
+requires static analysis of the binaries — **explicitly out of scope for 22a**.
+`scripts/ghidra_find_tables.py` is provided as a skeleton entry point.
 
 ---
 

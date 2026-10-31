@@ -168,14 +168,15 @@ def handle_archive(archive: Path, out_dir: Path, inv: Inventory, *, quiet: bool)
 def process_target(target: Path, out_dir: Path, *, quiet: bool = False) -> Inventory:
     inv = Inventory()
     if target.is_dir():
-        apks = sorted(
-            p for p in target.iterdir()
+        names = [
+            p.name for p in target.iterdir()
             if p.is_file() and p.suffix.lower() in ARCHIVE_SUFFIXES
-        )
-        if not apks:
+        ]
+        if not names:
             raise FileNotFoundError(f"no archives found in directory: {target}")
-        for apk in apks:
-            handle_archive(apk, out_dir, inv, quiet=quiet)
+        # Guarantee base-before-config ordering in directory mode too.
+        for name in _order_split_names(names):
+            handle_archive(target / name, out_dir, inv, quiet=quiet)
     else:
         handle_archive(target, out_dir, inv, quiet=quiet)
     return inv

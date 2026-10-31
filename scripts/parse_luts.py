@@ -420,6 +420,7 @@ def read_cube(path: Path):
 def _make_candidate(path: Path, root: Path, **fields) -> dict:
     cand = {
         "path": _relpath(path, root),
+        "offset": 0,  # byte offset of the payload within the file, when known
         "type": "unknown",
         "size_bytes": None,
         "magic": None,
@@ -720,7 +721,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Directory for emitted .cube + sidecars "
                         "(default: ./luts_out).")
     p.add_argument("--lut-size", type=int, default=None,
-                   help="Force the LUT size N for PNG candidates.")
+                   help="Reinterpret the tile grid as N^3 (does NOT resample; "
+                        "use for alternate tile layouts).")
     p.add_argument("--min-confidence", type=float, default=0.5,
                    help="Minimum confidence to extract (default: 0.5).")
     p.add_argument("--tile-axis", choices=("r", "g", "b"), default="b")
