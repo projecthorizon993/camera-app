@@ -21,6 +21,8 @@ jobs:
           echo "DEVELOPER_DIR=$XCODE_APP/Contents/Developer" >> "$GITHUB_ENV"
       - name: Generate project
         run: brew install xcodegen && xcodegen generate
+      - name: List project schemes
+        run: xcodebuild -list -project CameraApp.xcodeproj
       - name: Compile check (simulator)
         run: >
           xcodebuild -project CameraApp.xcodeproj -scheme CameraApp
@@ -38,6 +40,7 @@ jobs:
         with:
           name: CameraApp-unsigned-ipa
           path: build/CameraApp.ipa
+          if-no-files-found: error
 
   python:
     runs-on: ubuntu-latest
