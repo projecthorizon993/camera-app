@@ -221,6 +221,14 @@ def _walk_layout(node, lines, dividers, state):
             state["alignment"] = node.get("gravity")
             state["background"] = bg
         _walk_layout(node.get("childViews", []), lines, dividers, state)
+    else:
+        # Wrapper/unknown node (e.g. {"layout": [...]}) -- descend into any
+        # nested structures so we never miss the real view tree.
+        for key, value in node.items():
+            if key == "type":
+                continue
+            if isinstance(value, (list, dict)):
+                _walk_layout(value, lines, dividers, state)
 
 
 def parse_watermark_config(path: Path, root: Path) -> dict | None:
@@ -293,6 +301,7 @@ def parse_watermark_config(path: Path, root: Path) -> dict | None:
     return sanitize_obj({
         "id": sanitize(wid),
         "displayName": display_name,
+        "sourceName": sanitize(str(md.get("name", ""))),
         "group": sanitize(group),
         "lines": lines,
         "divider": dividers[0] if dividers else {"present": False},

@@ -467,14 +467,17 @@ def scan_image_file(path: Path, root: Path, name_hint: bool) -> list[dict]:
         w, h, depth, ctype = dims
         guesses = guess_lut_from_dims(w, h)
         if guesses:
-            for g in guesses:
-                conf = g["confidence"] * (1.0 if name_hint else 0.85)
-                out.append(_make_candidate(
-                    path, root, type="png_lut", size_bytes=size, magic="png",
-                    dims=[w, h], lut_size=g["lut_size"], layout=g["layout"],
-                    confidence=round(conf, 3), method="png_tiled_lut",
-                    bit_depth=depth, colour_type=ctype,
-                ))
+            best = max(guesses, key=lambda g: g["confidence"])
+            others = [g for g in guesses if g is not best]
+            conf = best["confidence"] * (1.0 if name_hint else 0.85)
+            out.append(_make_candidate(
+                path, root, type="png_lut", size_bytes=size, magic="png",
+                dims=[w, h], lut_size=best["lut_size"], layout=best["layout"],
+                confidence=round(conf, 3), method="png_tiled_lut",
+                bit_depth=depth, colour_type=ctype,
+                alternatives=[{"lut_size": g["lut_size"], "layout": g["layout"]}
+                              for g in others],
+            ))
         elif name_hint:
             out.append(_make_candidate(
                 path, root, type="png_unclassified", size_bytes=size, magic="png",
@@ -528,6 +531,8 @@ def scan_binary_file(path: Path, root: Path, name_hint: bool) -> list[dict]:
 
 
 def scan_source_file(path: Path, root: Path) -> list[dict]:
+    if path.name == "R.java":
+        return []  # generated resource-id tables are never colour LUTs
     try:
         if path.stat().st_size > MAX_SOURCE_FILE_BYTES:
             return []
