@@ -56,7 +56,10 @@ final class ShutterFeedback: ObservableObject {
     /// runs its opacity flash on `onChange(of:)` for this value.
     @Published private(set) var shutterFlashID = 0
 
-    private let store: ShutterSoundStore
+    /// Injected backing store. `var` (never reassigned wholesale) because the
+    /// write-through observer below mutates the struct wrapper's field after
+    /// construction — assigning through a `let` struct is a compile error.
+    private var store: ShutterSoundStore
 
     init(store: ShutterSoundStore = ShutterSoundStore()) {
         self.store = store
