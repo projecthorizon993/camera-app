@@ -4,9 +4,10 @@ import Foundation
 // dialogs, denied-state handling and Settings deep-link).
 //
 // Grants everything so the permission gate opens and the app runs
-// end-to-end before the real module lands. State is unprotected mutable
-// (fine for a MainActor-driven placeholder).
+// end-to-end before the real module lands. State is @MainActor-isolated
+// (the service is only reached through the main-actor UI stack).
 
+@MainActor
 final class PlaceholderPermissionService: CameraPermissionServiceProtocol {
     private var statuses: [AppPermission: PermissionStatus] = [:]
 

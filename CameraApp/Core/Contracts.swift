@@ -8,8 +8,11 @@ import AVFoundation
 // Members may be added later, but none may be renamed, re-typed, or removed.
 //
 // Concurrency notes (Swift 6):
-// - Hardware/processing work is `async throws` and never runs on the main
-//   thread; types crossing actors are Sendable value types.
+// - `async throws` is not by itself a background guarantee — under Approachable
+//   Concurrency (SE-0461) a nonisolated async call runs on the caller's actor;
+//   hardware/processing implementations must explicitly confine themselves to a
+//   background executor (dedicated serial queue or actor). Types crossing actors
+//   are Sendable value types.
 // - CVPixelBuffer flows through nonisolated call paths only; the project
 //   enables Approachable Concurrency (nonisolated async runs on the caller's
 //   actor), so @MainActor UI code can await these services directly.
