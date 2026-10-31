@@ -61,6 +61,17 @@ enum CameraServiceMessages {
 /// `@unchecked Sendable`: the frozen `CameraServiceProtocol` is not declared
 /// Sendable, yet the blocking calls must run off-main. The real
 /// `CameraService` is thread-safe by construction (`@unchecked Sendable`
+// MARK: - ControlGateFailure
+
+/// User-presentable control failure. Strings do not conform to `Error`, so the
+/// gate's snapshot results carry this typed value instead (extracted by
+/// consumers as `failure.message`).
+struct ControlGateFailure: Error, Sendable {
+    let message: String
+}
+
+// MARK: - CameraControlGate
+
 /// class: lock-guarded snapshot getters + one serial session queue every
 /// mutation funnels into). This box is the single, documented erasure point
 /// for that gap in the capture UI.
@@ -86,12 +97,12 @@ final class CameraControlGate: @unchecked Sendable {
     }
 
     /// Switches the active device and returns the fresh capability snapshot.
-    func selectDevice(_ position: DevicePosition) async -> Result<CameraSessionSnapshot, String> {
+    func selectDevice(_ position: DevicePosition) async -> Result<CameraSessionSnapshot, ControlGateFailure> {
         await runWithSnapshot { try self.base.selectDevice(position) }
     }
 
     /// Switches the active logical lens and returns the fresh snapshot.
-    func selectLens(_ id: CameraLensID) async -> Result<CameraSessionSnapshot, String> {
+    func selectLens(_ id: CameraLensID) async -> Result<CameraSessionSnapshot, ControlGateFailure> {
         await runWithSnapshot { try self.base.selectLens(id) }
     }
 
@@ -124,8 +135,8 @@ final class CameraControlGate: @unchecked Sendable {
 
     private func runWithSnapshot(
         _ operation: @escaping @Sendable () throws -> Void
-    ) async -> Result<CameraSessionSnapshot, String> {
-        await withCheckedContinuation { (continuation: CheckedContinuation<Result<CameraSessionSnapshot, String>, Never>) in
+    ) async -> Result<CameraSessionSnapshot, ControlGateFailure> {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Result<CameraSessionSnapshot, ControlGateFailure>, Never>) in
             queue.async {
                 do {
                     try operation()
@@ -136,7 +147,7 @@ final class CameraControlGate: @unchecked Sendable {
                         lenses: self.base.availableLenses
                     )))
                 } catch {
-                    continuation.resume(returning: .failure(CameraServiceMessages.message(for: error)))
+                    continuation.resume(returning: .failure(ControlGateFailure(message: CameraServiceMessages.message(for: error))))
                 }
             }
         }

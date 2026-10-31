@@ -231,8 +231,8 @@ final class CaptureHUDState {
                 position = target
                 currentLens = (target == .front) ? .front : .wide
                 zoomFactor = 1
-            case .failure(let message):
-                controlErrorText = message
+            case .failure(let failure):
+                controlErrorText = failure.message
             }
         }
     }
