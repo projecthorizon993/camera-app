@@ -31,3 +31,31 @@ targets:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+    settings:
+      configs:
+        Debug:
+          ENABLE_TESTABILITY: YES
+  CameraAppTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: CameraAppTests
+    dependencies:
+      - target: CameraApp
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/CameraApp.app/CameraApp"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+schemes:
+  CameraApp:
+    build:
+      targets:
+        CameraApp: all
+        CameraAppTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - CameraAppTests
