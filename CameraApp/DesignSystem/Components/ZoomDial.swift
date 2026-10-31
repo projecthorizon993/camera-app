@@ -143,6 +143,15 @@ private struct ZoomDialPreviewHost: View {
     let stops: [CGFloat]
     let range: ClosedRange<CGFloat>
 
+    /// Explicit init (internal by default): private stored properties make the
+    /// synthesized memberwise initializer private, which #Preview expansion
+    /// cannot call; parameters lead with the binding like the component.
+    init(factor: CGFloat, stops: [CGFloat], range: ClosedRange<CGFloat>) {
+        self.factor = factor
+        self.stops = stops
+        self.range = range
+    }
+
     var body: some View {
         VStack(spacing: Theme.Spacing.xl) {
             ZoomDial(stops: stops, range: range, factor: $factor, onCommit: nil)
@@ -157,9 +166,9 @@ private struct ZoomDialPreviewHost: View {
 }
 
 #Preview("Optical stops") {
-    ZoomDialPreviewHost(stops: [0.5, 1, 2], range: 0.5...6, factor: 1)
+    ZoomDialPreviewHost(factor: 1, stops: [0.5, 1, 2], range: 0.5...6)
 }
 
 #Preview("Digital region") {
-    ZoomDialPreviewHost(stops: [0.5, 1, 2], range: 0.5...6, factor: 3.4)
+    ZoomDialPreviewHost(factor: 3.4, stops: [0.5, 1, 2], range: 0.5...6)
 }

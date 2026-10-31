@@ -181,6 +181,12 @@ struct ViewfinderGridOverlay: View {
 private struct ViewfinderOverlayPreviewHost: View {
     @State private var showsGrid = true
 
+    /// Explicit init: private stored properties make the synthesized
+    /// memberwise initializer private, which #Preview expansion cannot call.
+    init(showsGrid: Bool = true) {
+        self.showsGrid = showsGrid
+    }
+
     var body: some View {
         ViewfinderOverlay(showsGrid: showsGrid) {
             HStack(spacing: Theme.Spacing.m) {

@@ -169,6 +169,20 @@ private struct ControlDialPreviewHost: View {
     let snapPoints: [CGFloat]
     let label: ((CGFloat) -> String)?
 
+    /// Explicit init: private stored properties make the synthesized
+    /// memberwise initializer private, which #Preview expansion cannot call.
+    init(value: CGFloat = 0.5,
+         icon: String,
+         title: String,
+         snapPoints: [CGFloat],
+         label: ((CGFloat) -> String)?) {
+        self.value = value
+        self.icon = icon
+        self.title = title
+        self.snapPoints = snapPoints
+        self.label = label
+    }
+
     var body: some View {
         HStack(spacing: Theme.Spacing.xxl) {
             ControlDial(

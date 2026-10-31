@@ -132,6 +132,13 @@ private struct ModeSwitchBarPreviewHost: View {
     @State private var selected: CaptureMode = .photo
     let disabledModes: Set<CaptureMode>
 
+    /// Explicit init: private stored properties make the synthesized
+    /// memberwise initializer private, which #Preview expansion cannot call.
+    init(selected: CaptureMode = .photo, disabledModes: Set<CaptureMode>) {
+        self.selected = selected
+        self.disabledModes = disabledModes
+    }
+
     var body: some View {
         VStack(spacing: Theme.Spacing.xl) {
             ModeSwitchBar(
