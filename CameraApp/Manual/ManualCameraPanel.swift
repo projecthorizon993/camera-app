@@ -115,6 +115,9 @@ struct ManualCameraPanel: View {
             Text("ISO and shutter lock together (device requirement); setting only one returns exposure to auto.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+            Text("Kelvin and tint lock together — WB stays auto until both are set.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
         .padding(16)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
