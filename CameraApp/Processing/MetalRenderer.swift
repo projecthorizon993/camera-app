@@ -62,7 +62,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
     let device: MTLDevice
 
     /// Enqueues the latest camera buffer. Non-blocking; safe from any queue.
-    /// An frame still pending in the slot when a new one arrives is counted as
+    /// A frame still pending in the slot when a new one arrives is counted as
     /// dropped (it never reached the GPU).
     func submitFrame(_ pixelBuffer: CVPixelBuffer) {
         let sequence = sequenceCounter.withLock { counter -> UInt64 in
@@ -244,10 +244,10 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else {
             return
         }
-        defer { encoder.endEncoding() }
 
         encodeFramePass(into: encoder, view: view)
         encodeOverlayPass(into: encoder, view: view)
+        encoder.endEncoding()   // must end before present/commit
 
         commandBuffer.present(drawable)
         commandBuffer.commit()
