@@ -1,11 +1,14 @@
 import SwiftUI
 
-// PLACEHOLDER — replaced by the App module in Task 2.
+/// App entry point. Owns the single `AppEnvironment` for the process and
+/// injects it (and its router) into the root view.
 @main
 struct CameraApp: App {
+    @StateObject private var environment = AppEnvironment()
+
     var body: some Scene {
         WindowGroup {
-            Text("CameraApp scaffold")
+            RootView(environment: environment, router: environment.router)
         }
     }
 }
