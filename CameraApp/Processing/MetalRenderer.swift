@@ -240,6 +240,12 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
             } else if let drawn = makeDrawnFrame(from: pending) {
                 lastDrawnFrame = drawn
                 lastDrawnSequence = pending.sequence
+            } else {
+                // Pending frame could not be wrapped as a Metal texture
+                // (unsupported format / cache failure) → count it as dropped so
+                // HUD numbers stay consistent with the submit-side displacement
+                // path.
+                incrementDroppedFrameCount()
             }
         }
 

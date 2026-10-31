@@ -30,8 +30,11 @@ private struct ZebraParams {
 // MARK: - ZebrasStage
 //
 // Exposure-assist stub: luma above a fixed threshold → diagonal-stripe
-// overlay (constant pattern, no config). Slot/toggle notes match PeakingStage:
-// both assists compete for the `.develop` slot and are enabled via `isEnabled`.
+// overlay (constant pattern, no config).
+// Composition contract: the pipeline holds ONE processor per stage, and both
+// assists claim the `.develop` slot — T7a/T20 choose the live assist (zebras
+// default to disabled; peaking is the enabled default). If both must ever run
+// together, compose them manually into a single composite stage.
 // Behavior: toggle off or no Metal device → buffer passes through unchanged.
 
 final class ZebrasStage: ProcessingStageProtocol, @unchecked Sendable {
@@ -39,7 +42,7 @@ final class ZebrasStage: ProcessingStageProtocol, @unchecked Sendable {
     let stage: PipelineStage = .develop
 
     private let engine: OverlayKernelEngine?
-    private let enabledState = OSAllocatedUnfairLock<Bool>(initialState: true)
+    private let enabledState = OSAllocatedUnfairLock<Bool>(initialState: false)
 
     /// Assist toggle (viewfinder settings / Task 20 tuning).
     var isEnabled: Bool {

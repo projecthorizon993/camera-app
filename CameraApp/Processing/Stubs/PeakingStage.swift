@@ -30,9 +30,10 @@ private struct PeakingParams {
 // MARK: - PeakingStage
 //
 // Focus-assist stub: Metal sobel edge magnitude → green overlay blend.
-// Slot note: both assists default to the `.develop` (preview-phase) slot; the
-// pipeline holds one processor per stage, so the app layer (Task 7a / Task 20)
-// decides which assist occupies it and toggles `isEnabled` accordingly.
+// Composition contract: the pipeline holds ONE processor per stage, and both
+// assists claim the `.develop` slot — T7a/T20 choose the live assist (peaking
+// is the enabled-by-default one). If both must ever run together, compose them
+// manually into a single composite stage.
 // Behavior: toggle off or no Metal device → buffer passes through unchanged.
 
 final class PeakingStage: ProcessingStageProtocol, @unchecked Sendable {

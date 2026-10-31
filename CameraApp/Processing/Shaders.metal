@@ -168,7 +168,9 @@ kernel void peakingKernel(texture2d<float, access::read> yTexture [[texture(0)]]
 
     float gx = (tr + 2.0f * mr + br) - (tl + 2.0f * ml + bl);
     float gy = (bl + 2.0f * bc + br) - (tl + 2.0f * tc + tr);
-    float magnitude = sqrt(gx * gx + gy * gy) * 0.25f;   // normalize: max gradient ≈ 4
+    // Normalized edge magnitude: sqrt(gx² + gy²) * 0.25 peaks at ≈1.41 for pure
+    // diagonal extremes (≈1.0 for axis-aligned edges); 0.15 is the tuning constant.
+    float magnitude = sqrt(gx * gx + gy * gy) * 0.25f;
 
     float mask = clamp((magnitude - params.threshold) / max(params.softness, 0.0001f), 0.0f, 1.0f);
     float3 base = baseColor(yTexture, cbcrTexture, gid, singlePlane);

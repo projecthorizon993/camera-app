@@ -132,6 +132,7 @@ final class OverlayKernelEngine: @unchecked Sendable {
         encoder.endEncoding()
 
         commandBuffer.commit()
+        // TODO(T20): replace with addCompletionHandler + withCheckedContinuation — do not copy waitUntilCompleted into production stages
         commandBuffer.waitUntilCompleted()   // synchronous on a background thread is acceptable for stubs
 
         if let gpuError = commandBuffer.error {
