@@ -2,6 +2,7 @@ import Foundation
 import CoreVideo
 import Metal
 import MetalKit
+import QuartzCore
 import os
 import simd
 
@@ -112,7 +113,11 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
     private let bgraPipelineState: MTLRenderPipelineState
     private let yuvPipelineState: MTLRenderPipelineState
     private let overlayPipelineState: MTLRenderPipelineState
-    private let samplerState: MTLSamplerState
+    /// Sampler for the textured-quad pass. Optional because
+    /// `makeSamplerState(descriptor:)` returns an optional; a fallback is
+    /// created lazily at bind time (render-thread confined). When none can be
+    /// created the frame pass is skipped for that frame.
+    private var samplerState: (any MTLSamplerState)?
     private let overlayProvider: RenderOverlayProvider
 
     // MARK: Cross-thread state
@@ -191,22 +196,43 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
             return nil
         }
 
-        let samplerDescriptor = MTLSamplerDescriptor()
-        samplerDescriptor.minFilter = .linear
-        samplerDescriptor.magFilter = .linear
-        samplerDescriptor.mipFilter = .notMipmapped
-        samplerDescriptor.sAddressMode = .clampToEdge
-        samplerDescriptor.tAddressMode = .clampToEdge
-
         self.device = device
         self.commandQueue = commandQueue
         self.textureCache = textureCache
         self.bgraPipelineState = bgraPipelineState
         self.yuvPipelineState = yuvPipelineState
         self.overlayPipelineState = overlayPipelineState
-        self.samplerState = device.makeSamplerState(descriptor: samplerDescriptor)
+        // Optional: `makeSamplerState(descriptor:)` returns an optional. A
+        // fallback is created lazily at bind time if this is nil.
+        self.samplerState = device.makeSamplerState(descriptor: Self.makeSamplerDescriptor())
         self.overlayProvider = overlayProvider ?? RenderOverlayDefaults.threeByThreeGrid
         super.init()
+    }
+
+    // MARK: Sampler
+
+    private static func makeSamplerDescriptor() -> MTLSamplerDescriptor {
+        let descriptor = MTLSamplerDescriptor()
+        descriptor.minFilter = .linear
+        descriptor.magFilter = .linear
+        descriptor.mipFilter = .notMipmapped
+        descriptor.sAddressMode = .clampToEdge
+        descriptor.tAddressMode = .clampToEdge
+        return descriptor
+    }
+
+    /// Shared sampler, created lazily on first use (render thread). Nil when the
+    /// device cannot create one — callers then skip the frame pass for that
+    /// frame rather than binding an invalid sampler.
+    private func resolvedSamplerState() -> (any MTLSamplerState)? {
+        if let samplerState {
+            return samplerState
+        }
+        guard let created = device.makeSamplerState(descriptor: Self.makeSamplerDescriptor()) else {
+            return nil
+        }
+        samplerState = created
+        return created
     }
 
     // MARK: Frame ingestion (camera queue)
@@ -224,7 +250,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
     }
 
     func draw(in view: MTKView) {
-        updateFrameTiming(view)
+        updateFrameTiming()
 
         guard let drawable = view.currentDrawable,
               let renderPassDescriptor = view.currentRenderPassDescriptor,
@@ -264,7 +290,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
     // MARK: Pass 1 — textured quad
 
     private func encodeFramePass(into encoder: MTLRenderCommandEncoder, view: MTKView) {
-        guard let frame = lastDrawnFrame else { return }   // nothing captured yet → clear color only
+        guard let frame = lastDrawnFrame,                          // nothing captured yet → clear color only
+              let sampler = resolvedSamplerState() else { return }  // no sampler available → skip this frame
 
         encoder.setRenderPipelineState(frame.isBiplanar ? yuvPipelineState : bgraPipelineState)
 
@@ -274,7 +301,7 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
             length: MemoryLayout<TexturedQuadVertex>.stride * quad.count,
             index: 0
         )
-        encoder.setFragmentSamplerState(samplerState, index: 0)
+        encoder.setFragmentSamplerState(sampler, index: 0)
         encoder.setFragmentTexture(frame.lumaTexture, index: 0)
         if let chroma = frame.chromaTexture {
             encoder.setFragmentTexture(chroma, index: 1)
@@ -362,8 +389,10 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
 
     // MARK: Frame timing / stats
 
-    private func updateFrameTiming(_ view: MTKView) {
-        let timestamp = view.timestamp
+    private func updateFrameTiming() {
+        // MTKView has no frame-timestamp property; the render thread's own clock
+        // (QuartzCore) is the per-frame timestamp source for the fps EMA.
+        let timestamp = CACurrentMediaTime()
         defer { lastFrameTimestamp = timestamp }
         guard lastFrameTimestamp > 0 else { return }
         let delta = timestamp - lastFrameTimestamp
