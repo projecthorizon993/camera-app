@@ -62,7 +62,10 @@ final class CameraPermissionService: CameraPermissionServiceProtocol {
     // MARK: CameraPermissionServiceProtocol
 
     func status(of permission: AppPermission) async -> PermissionStatus {
-        mapPermissionStatus(currentRawStatus(of: permission), for: permission)
+        // The protocol witness is `nonisolated(nonsending)` under SE-0461, so
+        // hop to the main actor for the `@MainActor`-isolated state read.
+        let raw = await currentRawStatus(of: permission)
+        return mapPermissionStatus(raw, for: permission)
     }
 
     func request(_ permission: AppPermission) async -> PermissionStatus {
