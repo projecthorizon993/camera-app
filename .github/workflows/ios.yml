@@ -7,7 +7,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Select Xcode 26
-        run: sudo xcode-select -s /Applications/Xcode_26*.app
+        run: |
+          ls -d /Applications/Xcode*.app | sort -V
+          XCODE_APP="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1 || true)"
+          if [ -z "$XCODE_APP" ]; then
+            XCODE_APP="$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+            echo "::warning::Xcode 26 not found; falling back to $XCODE_APP"
+          fi
+          echo "XCODE_APP=$XCODE_APP" >> "$GITHUB_ENV"
+      - name: Show toolchain
+        run: |
+          DEVELOPER_DIR="$XCODE_APP/Contents/Developer" xcodebuild -version
+          echo "DEVELOPER_DIR=$XCODE_APP/Contents/Developer" >> "$GITHUB_ENV"
       - name: Generate project
         run: brew install xcodegen && xcodegen generate
       - name: Compile check (simulator)
