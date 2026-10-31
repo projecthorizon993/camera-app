@@ -22,12 +22,16 @@ import Combine
 // clock — while `endEditing()` (Slider `onEditingChanged(false)`) commits the
 // final value unconditionally.
 //
-// SE-0461 note: `ManualServiceGate.apply/reset` are nonisolated async, so
-// under Approachable Concurrency their synchronous prologue runs on the
-// CALLER's actor (main); that prologue only creates a continuation and
-// enqueues — the blocking work is confined to the gate's queue, which is the
-// point. The engine's `Task { @MainActor … }` follow-ups touch `lastError`
-// only from an isolated context.
+// SE-0461 note: every `ManualServiceGate` member (`apply`, `reset`,
+// `loadRanges`) is nonisolated async, so under Approachable Concurrency its
+// synchronous prologue runs on the CALLER's actor (main); that prologue only
+// creates a continuation and enqueues — the blocking/reading work is confined
+// to the gate's queue, which is the point. The engine's `Task { … }`
+// follow-ups inherit this @MainActor context's isolation, so `lastError` (and
+// every other assignment) is touched only from an isolated context. A
+// `nonisolated init` cannot write any isolated state — `ranges` therefore
+// starts on a declaration-default placeholder and is assigned by the awaited
+// `reloadRanges()` on mount.
 
 @MainActor
 final class ManualConfigEngine: ObservableObject {
@@ -46,10 +50,24 @@ final class ManualConfigEngine: ObservableObject {
     /// Human-readable failure from the last apply/reset; nil after a success.
     @Published var lastError: String?
 
-    /// Snapshot of `supportedManualRanges`; refreshed by `reloadRanges()`.
-    /// Slider bounds come from here only — never hardcoded (ranges always
-    /// come from the service, which refreshes them per lens/format).
-    @Published private(set) var ranges: ManualRanges
+    /// Slider bounds come from here only — the real values always come from
+    /// the service's `supportedManualRanges` (which refreshes them per
+    /// lens/format), loaded by the first `reloadRanges()` on mount.
+    ///
+    /// The declaration default is a neutral placeholder, NOT a hardcoded
+    /// range source: CI fix round 2 — a `nonisolated` init may not write
+    /// `@MainActor`-isolated state, including `@Published` storage written
+    /// directly, so the service snapshot can only be assigned from an
+    /// isolated context after construction. The placeholder is visible for
+    /// at most one frame pre-mount (the panel renders disabled pre-session
+    /// anyway).
+    @Published private(set) var ranges = ManualRanges(
+        iso: 34...3456,
+        exposureSeconds: 0.02...1.0,
+        lensPosition: 0...1,
+        kelvin: 2500...8000,
+        tint: 0...100
+    )
 
     // MARK: - Plumbing
 
@@ -65,36 +83,37 @@ final class ManualConfigEngine: ObservableObject {
 
     /// - Parameters:
     ///   - service: the live camera service (real `CameraService`,
-    ///     placeholder, or a test mock). Read once for the initial
-    ///     `supportedManualRanges`; every apply/reset afterwards flows through
-    ///     the gate, which owns the only reference from here on.
+    ///     placeholder, or a test mock). Every apply/reset/range-read flows
+    ///     through the gate, which owns the only reference from here on.
     ///   - clock: monotonic seconds; tests inject a controllable clock.
     ///
     /// `nonisolated` so a SwiftUI view may construct it from a nonisolated
     /// init (`StateObject(wrappedValue:)` thunks are evaluated there). It only
-    /// initializes stored properties and calls the synchronous, lock-guarded
-    /// `supportedManualRanges` getter — no isolated state is read.
+    /// initializes the non-isolated dependencies (gate, clock). CI fix
+    /// round 2: a nonisolated init cannot write `@MainActor`-isolated state —
+    /// not even `@Published` storage directly — so `ranges` keeps its
+    /// placeholder declaration default and is loaded by the awaited
+    /// `reloadRanges()` on mount.
     nonisolated init(
         service: any CameraServiceProtocol,
         clock: @escaping @Sendable () -> Double = { ProcessInfo.processInfo.systemUptime }
     ) {
         self.gate = ManualServiceGate(service: service)
         self.clock = clock
-        // Direct wrapper-storage initialization: `self.ranges = …` routes
-        // through the @MainActor-isolated accessor, which a nonisolated init
-        // may not call (CI fix round 1). Writing the `_ranges` storage here is
-        // pure initialization — no isolated state is read, and the value is
-        // exactly the service's `supportedManualRanges` snapshot.
-        self._ranges = Published(initialValue: service.supportedManualRanges)
     }
 
     // MARK: - Range refresh (mount / lens switch)
 
-    /// Re-reads `supportedManualRanges` and re-clamps any manual values into
-    /// the fresh ranges (nil fields stay nil). The panel calls this on mount;
-    /// T7 re-mounts the panel on lens switches, which re-fires the hook.
-    func reloadRanges() {
-        let fresh = gate.ranges
+    /// Reads `supportedManualRanges` via the gate (off-main) and re-clamps
+    /// any manual values into the fresh ranges (nil fields stay nil). Await
+    /// this once at mount — `.task { await engine.reloadRanges() }`; T7
+    /// re-mounts the panel on lens switches, which re-fires the hook.
+    ///
+    /// The service getter is a synchronous, lock-guarded snapshot read, but
+    /// the hop keeps even that off the main actor, and the assignments below
+    /// happen in this @MainActor context.
+    func reloadRanges() async {
+        let fresh = await gate.loadRanges()
         ranges = fresh
         iso = iso.map { Self.clamp($0, to: fresh.iso) }
         shutterSeconds = shutterSeconds.map { Self.clamp($0, to: fresh.exposureSeconds) }
@@ -219,11 +238,17 @@ private final class ManualServiceGate: @unchecked Sendable {
         self.base = service
     }
 
-    /// Snapshot-getter passthrough — the real service reads it under
-    /// `stateLock` (synchronous, no session-queue involvement), so it is safe
-    /// from any isolation context.
-    var ranges: ManualRanges {
-        base.supportedManualRanges
+    /// Reads `supportedManualRanges` on the gate's queue and returns it.
+    /// The real service's getter is a synchronous lock-guarded snapshot read
+    /// (no session-queue involvement); hopping keeps even that off-main, and
+    /// the caller assigns the result from its own `@MainActor` context
+    /// (CI fix round 2).
+    func loadRanges() async -> ManualRanges {
+        await withCheckedContinuation { (continuation: CheckedContinuation<ManualRanges, Never>) in
+            queue.async {
+                continuation.resume(returning: self.base.supportedManualRanges)
+            }
+        }
     }
 
     /// Applies `config` off-main. Returns nil on success, else user-facing

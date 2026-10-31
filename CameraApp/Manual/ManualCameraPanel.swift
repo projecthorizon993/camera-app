@@ -26,9 +26,9 @@ import SwiftUI
 ///   - isReady: session-ready flag; the panel disables itself until true.
 ///     T7 owns the lifecycle.
 ///
-/// Mounting re-reads `supportedManualRanges` (`reloadRanges()`), so after a
-/// lens switch T7 simply re-mounts this view (change its identity) and the
-/// fresh ranges flow in.
+/// Mounting reads `supportedManualRanges` once (the panel's `.task` →
+/// `reloadRanges()`), so after a lens switch T7 simply re-mounts this view
+/// (change its identity) and the fresh ranges flow in.
 struct ManualControlsView: View {
     @StateObject private var engine: ManualConfigEngine
     private let isReady: Bool
@@ -40,7 +40,9 @@ struct ManualControlsView: View {
 
     var body: some View {
         ManualCameraPanel(engine: engine, isReady: isReady)
-            .onAppear { engine.reloadRanges() }
+        // Ranges are read once at appear by the panel's own `.task`
+        // (CI fix round 2: `reloadRanges()` is async) — no duplicate hook
+        // here, so the read happens exactly once per mount.
     }
 }
 
@@ -119,7 +121,12 @@ struct ManualCameraPanel: View {
         .disabled(!isReady)
         .opacity(isReady ? 1 : 0.55)
         .animation(.easeInOut(duration: 0.15), value: engine.lastError)
-        .onAppear { engine.reloadRanges() }
+        // Ranges load once at mount (CI fix round 2: reloadRanges is async —
+        // the service read hops off-main and the assignment happens on the
+        // MainActor). Until the first task runs, sliders show the engine's
+        // neutral placeholder bounds for one frame — acceptable: the panel
+        // renders disabled pre-session anyway (isReady gating).
+        .task { await engine.reloadRanges() }
     }
 
     // MARK: - Value display

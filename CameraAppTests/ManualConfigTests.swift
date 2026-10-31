@@ -230,8 +230,13 @@ final class ManualConfigTests: XCTestCase {
 
     // MARK: - ManualConfigEngine: ranges
 
-    func testRangesLoadedFromServiceAtInit() {
+    /// CI fix round 2: the engine starts on a neutral placeholder (a
+    /// nonisolated init may not write `@Published` storage, not even
+    /// directly); the service values arrive on the first awaited
+    /// `reloadRanges()` at mount.
+    func testRangesLoadedFromServiceOnReload() async {
         let context = makeEngine()
+        await context.engine.reloadRanges()
         let ranges = context.mock.supportedManualRanges
         XCTAssertEqual(context.engine.ranges.iso, ranges.iso)
         XCTAssertEqual(context.engine.ranges.exposureSeconds, ranges.exposureSeconds)
@@ -240,11 +245,18 @@ final class ManualConfigTests: XCTestCase {
         XCTAssertEqual(context.engine.ranges.tint, ranges.tint)
     }
 
-    func testReloadRangesReReadsAndClamps() {
+    func testPlaceholderRangesBeforeFirstReload() {
+        let context = makeEngine()
+        // Placeholder until mount — sane, non-degenerate bounds so slider
+        // rendering never divides by zero; the service snapshot replaces it.
+        XCTAssertEqual(context.engine.ranges.lensPosition, 0.0...1.0)
+    }
+
+    func testReloadRangesReReadsAndClamps() async {
         let context = makeEngine()
         context.engine.iso = 9999        // outside the service range
         context.engine.shutterSeconds = 0.02
-        context.engine.reloadRanges()
+        await context.engine.reloadRanges()
         XCTAssertEqual(context.engine.ranges.iso, 100.0...3200.0)
         XCTAssertEqual(context.engine.iso, Float(3200))
         XCTAssertEqual(context.engine.shutterSeconds, 0.02)  // inside → untouched
