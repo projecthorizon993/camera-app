@@ -83,18 +83,23 @@ final class DefaultProcessingPipeline: ProcessingPipelineProtocol, PipelineStage
     /// executor. Missing stages pass through; a failing stage aborts the run
     /// with `PipelineError.stageFailed` carrying its id.
     func run(_ input: CVPixelBuffer, stages requestedStages: [PipelineStage], context: ProcessingContext) async throws -> CVPixelBuffer {
-        try await runOffCallerActor(input, requestedStages: requestedStages, context: context)
+        // The raw buffer is non-Sendable; it crosses the @concurrent boundary
+        // inside the Sendable hand-off box in both directions.
+        let boxed = try await runOffCallerActor(PixelBufferBox(buffer: input), requestedStages: requestedStages, context: context)
+        return boxed.buffer
     }
 
     /// Explicit background hop. Under Approachable Concurrency a plain
     /// nonisolated `async` method would inherit the caller's actor (main when
     /// awaited from UI code); `@concurrent` is what actually guarantees the
     /// chain executes on the shared background executor, never on main.
+    /// Buffer hand-off is boxed (`PixelBufferBox`) in both directions because
+    /// CVPixelBuffer is not guaranteed to be Sendable.
     @concurrent
-    private func runOffCallerActor(_ input: CVPixelBuffer, requestedStages: [PipelineStage], context: ProcessingContext) async throws -> CVPixelBuffer {
+    private func runOffCallerActor(_ input: PixelBufferBox, requestedStages: [PipelineStage], context: ProcessingContext) async throws -> PixelBufferBox {
         // Enum order wins over the caller's request order.
         let ordered = PipelineStage.allCases.filter { requestedStages.contains($0) }
-        var buffer = input
+        var buffer = input.buffer
         for stage in ordered {
             guard let processor = processor(for: stage) else {
                 continue   // missing stage → pass through
@@ -105,7 +110,7 @@ final class DefaultProcessingPipeline: ProcessingPipelineProtocol, PipelineStage
                 throw PipelineError.stageFailed(stage: stage, underlying: error)
             }
         }
-        return buffer
+        return PixelBufferBox(buffer: buffer)
     }
 
     private func processor(for stage: PipelineStage) -> ProcessingStageProtocol? {

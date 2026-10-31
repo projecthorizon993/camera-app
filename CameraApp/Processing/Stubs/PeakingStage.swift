@@ -61,13 +61,17 @@ final class PeakingStage: ProcessingStageProtocol, @unchecked Sendable {
 
     func process(_ input: CVPixelBuffer, context: ProcessingContext) async throws -> CVPixelBuffer {
         guard isEnabled, let engine else { return input }
-        return try await applyOffCallerActor(engine, input: input, context: context)
+        // The raw buffer is non-Sendable; it crosses the @concurrent boundary
+        // inside the Sendable hand-off box in both directions.
+        let boxed = try await applyOffCallerActor(engine, box: PixelBufferBox(buffer: input), context: context)
+        return boxed.buffer
     }
 
     /// Explicit background hop (Approachable Concurrency, SE-0461): the GPU
     /// pass plus its synchronous wait must never run on the caller's actor.
     @concurrent
-    private func applyOffCallerActor(_ engine: OverlayKernelEngine, input: CVPixelBuffer, context: ProcessingContext) async throws -> CVPixelBuffer {
+    private func applyOffCallerActor(_ engine: OverlayKernelEngine, box: PixelBufferBox, context: ProcessingContext) async throws -> PixelBufferBox {
+        let input = box.buffer
         var params = PeakingParams(
             inputIsSinglePlane: CVPixelBufferGetPlaneCount(input) == 2 ? 1 : 0,
             threshold: PeakingConstants.edgeThreshold,
@@ -75,8 +79,9 @@ final class PeakingStage: ProcessingStageProtocol, @unchecked Sendable {
             strength: PeakingConstants.blendStrength * Float(context.strength),
             edgeColor: PeakingConstants.edgeColor
         )
-        return try engine.runKernel(.peaking, input: input) { encoder in
+        let output = try engine.runKernel(.peaking, input: input) { encoder in
             encoder.setBytes(&params, length: MemoryLayout<PeakingParams>.stride, index: 0)
         }
+        return PixelBufferBox(buffer: output)
     }
 }

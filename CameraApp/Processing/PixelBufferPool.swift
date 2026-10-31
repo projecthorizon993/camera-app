@@ -19,6 +19,20 @@ import Metal
 // kCVPixelBufferMetalCompatibilityKey and IOSurface backing. Buffers arriving
 // from AVCaptureVideoDataOutput already satisfy both.
 
+// MARK: - Sendability hand-off box
+
+/// `@unchecked Sendable` hand-off box for one pixel buffer.
+///
+/// CVPixelBuffer's `Sendable` conformance is not guaranteed by the SDK, so a
+/// raw buffer cannot cross an isolation boundary (notably into a `@concurrent`
+/// function — "sending 'input' risks causing data races"). Buffers cross such
+/// boundaries inside this box instead, in both directions — the same pattern as
+/// `MetalRenderer.PendingFrame`. The box adds no copies: it holds one reference
+/// to the same IOSurface-backed buffer, so the zero-copy contract above holds.
+struct PixelBufferBox: @unchecked Sendable {
+    let buffer: CVPixelBuffer
+}
+
 // MARK: - PixelBufferPool
 
 /// CVPixelBufferPool-backed recycling pool sized from a source buffer
