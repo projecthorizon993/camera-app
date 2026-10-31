@@ -24,16 +24,14 @@ enum RenderOverlayDefaults {
     static let gridColor = SIMD4<Float>(0.85, 0.85, 0.85, 0.55)
 
     /// Internal default until Task 7a's viewfinder overlay lands: a simple 3×3 grid.
-    static let threeByThreeGrid: RenderOverlayProvider = {
-        let color = RenderOverlayDefaults.gridColor
-        let third: Float = 1.0 / 3.0
-        return [
-            RenderOverlayLine(start: SIMD2<Float>(third, 0), end: SIMD2<Float>(third, 1), color: color),
-            RenderOverlayLine(start: SIMD2<Float>(2 * third, 0), end: SIMD2<Float>(2 * third, 1), color: color),
-            RenderOverlayLine(start: SIMD2<Float>(0, third), end: SIMD2<Float>(1, third), color: color),
-            RenderOverlayLine(start: SIMD2<Float>(0, 2 * third), end: SIMD2<Float>(1, 2 * third), color: color),
-        ]
-    }()
+    static let threeByThreeGrid: RenderOverlayProvider = { RenderOverlayDefaults.gridLines }
+
+    private static let gridLines: [RenderOverlayLine] = [
+        RenderOverlayLine(start: SIMD2<Float>(1.0 / 3.0, 0), end: SIMD2<Float>(1.0 / 3.0, 1), color: gridColor),
+        RenderOverlayLine(start: SIMD2<Float>(2.0 / 3.0, 0), end: SIMD2<Float>(2.0 / 3.0, 1), color: gridColor),
+        RenderOverlayLine(start: SIMD2<Float>(0, 1.0 / 3.0), end: SIMD2<Float>(1, 1.0 / 3.0), color: gridColor),
+        RenderOverlayLine(start: SIMD2<Float>(0, 2.0 / 3.0), end: SIMD2<Float>(1, 2.0 / 3.0), color: gridColor),
+    ]
 }
 
 // MARK: - MetalRenderer
@@ -69,7 +67,11 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
             counter += 1
             return counter
         }
-        let displaced = pendingFrameSlot.withLock { slot -> PendingFrame? in
+        // withLockUnchecked: the closure must carry the incoming CVPixelBuffer;
+        // `withLock` would additionally demand `CVPixelBuffer: Sendable` (not
+        // guaranteed by the SDK). The PendingFrame box is already `@unchecked
+        // Sendable`, and access still happens under the lock.
+        let displaced = pendingFrameSlot.withLockUnchecked { slot -> PendingFrame? in
             let displaced = slot
             slot = PendingFrame(sequence: sequence, pixelBuffer: pixelBuffer)
             return displaced

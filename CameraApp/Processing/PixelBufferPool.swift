@@ -34,13 +34,18 @@ final class PixelBufferPool: @unchecked Sendable {
     let height: Int
     let pixelFormat: OSType
 
-    /// Shared attributes applied to every fallback allocation as well.
-    static let pixelBufferAttributes: [String: Any] = [
-        kCVPixelBufferMetalCompatibilityKey as String: true,
-        // Empty IOSurface properties dict enables IOSurface backing, which the
-        // CVMetalTextureCache requires for zero-copy GPU access.
-        kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
-    ]
+    /// Attributes applied to every allocation (pool and fallback). Computed
+    /// rather than a stored static: the dictionary holds non-Sendable CF values
+    /// ([String: Any]), so it is built fresh per use instead of being shared
+    /// global state.
+    static var pixelBufferAttributes: [String: Any] {
+        [
+            kCVPixelBufferMetalCompatibilityKey as String: true,
+            // Empty IOSurface properties dict enables IOSurface backing, which the
+            // CVMetalTextureCache requires for zero-copy GPU access.
+            kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
+        ]
+    }
 
     private let pool: CVPixelBufferPool?
 

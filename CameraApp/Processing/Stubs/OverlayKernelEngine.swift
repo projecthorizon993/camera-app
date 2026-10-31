@@ -2,6 +2,7 @@ import Foundation
 import CoreVideo
 import CoreGraphics
 import Metal
+import os
 
 // MARK: - OverlayKernelEngine
 //
@@ -31,7 +32,9 @@ final class OverlayKernelEngine: @unchecked Sendable {
     /// edge threadgroups this dispatch produces.
     static let threadgroupSize = MTLSize(width: 16, height: 16, depth: 1)
 
-    private struct EngineState {
+    /// `@unchecked Sendable`: holds Metal objects whose Sendability the SDK does
+    /// not guarantee, but every access goes through `stateLock` below.
+    private struct EngineState: @unchecked Sendable {
         let library: MTLLibrary
         var pipelineStates: [Kernel: MTLComputePipelineState] = [:]
         var pool: PixelBufferPool?
@@ -140,7 +143,9 @@ final class OverlayKernelEngine: @unchecked Sendable {
     // MARK: Internals
 
     private func computePipelineState(for kernel: Kernel) throws -> MTLComputePipelineState {
-        try stateLock.withLock { state -> MTLComputePipelineState in
+        // withLockUnchecked: `withLock` requires `R: Sendable`, which the Metal
+        // return type does not guarantee. Access still happens under the lock.
+        try stateLock.withLockUnchecked { state -> MTLComputePipelineState in
             if let cached = state.pipelineStates[kernel] {
                 return cached
             }
@@ -156,7 +161,10 @@ final class OverlayKernelEngine: @unchecked Sendable {
     /// One-entry pool cache: assists run at the source resolution, so the pool
     /// is only rebuilt on resolution changes (rotation, format switch).
     private func outputBuffer(width: Int, height: Int) throws -> CVPixelBuffer {
-        try stateLock.withLock { state -> CVPixelBuffer in
+        // withLockUnchecked: see computePipelineState(for:) — CVPixelBuffer's
+        // Sendable conformance is not guaranteed across SDK versions. Access
+        // still happens under the lock.
+        try stateLock.withLockUnchecked { state -> CVPixelBuffer in
             let size = CGSize(width: width, height: height)
             if state.poolSize == size, let pool = state.pool, let buffer = pool.buffer() {
                 return buffer

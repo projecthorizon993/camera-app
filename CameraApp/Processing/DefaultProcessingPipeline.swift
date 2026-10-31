@@ -1,6 +1,5 @@
 import Foundation
 import CoreVideo
-import os
 
 // MARK: - Errors
 
@@ -18,6 +17,35 @@ protocol PipelineStageListProviding: AnyObject {
     var activeStages: [PipelineStage] { get }
 }
 
+// MARK: - Stage registry
+
+/// Locked stage-slot registry.
+///
+/// The stage existentials are non-Sendable, so they cannot live in a Sendable
+/// generic container (`OSAllocatedUnfairLock(initialState:)` requires
+/// `State: Sendable`). This `@unchecked Sendable` reference box confines them
+/// behind an `NSLock` instead; the lock is only ever held for a synchronous
+/// dictionary read/write, never across an await.
+private final class StageRegistry: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stages: [PipelineStage: any ProcessingStageProtocol] = [:]
+
+    func get(_ stage: PipelineStage) -> (any ProcessingStageProtocol)? {
+        lock.lock(); defer { lock.unlock() }
+        return stages[stage]
+    }
+
+    func set(_ stage: PipelineStage, _ processor: (any ProcessingStageProtocol)?) {
+        lock.lock(); defer { lock.unlock() }
+        stages[stage] = processor
+    }
+
+    var registeredStages: [PipelineStage] {
+        lock.lock(); defer { lock.unlock() }
+        return PipelineStage.allCases.filter { stages[$0] != nil }
+    }
+}
+
 // MARK: - DefaultProcessingPipeline
 
 /// The real stage-slot pipeline (replaces `PlaceholderPipeline`).
@@ -28,30 +56,24 @@ protocol PipelineStageListProviding: AnyObject {
 ///     @MainActor UI would otherwise execute the whole chain on main.
 ///   • `run(_:)` therefore immediately delegates to a `@concurrent` helper,
 ///     which is the explicit hop onto the shared background executor.
-///   • Stage slots are guarded by an unfair lock; the lock is never held
-///     across an await (slot lookups are synchronous).
+///   • Stage slots live in a lock-guarded `StageRegistry`; the lock is never
+///     held across an await (slot lookups are synchronous).
 ///   • The class is `@unchecked Sendable` because its only mutable state
-///     (the slot dictionary) is lock-protected.
+///     (the registry) is lock-protected.
 final class DefaultProcessingPipeline: ProcessingPipelineProtocol, PipelineStageListProviding, @unchecked Sendable {
 
-    private typealias SlotState = [PipelineStage: ProcessingStageProtocol]
-
-    private let stateLock = OSAllocatedUnfairLock<SlotState>(initialState: SlotState())
+    private let registry = StageRegistry()
 
     // MARK: Stage slots
 
     /// Installs or clears (nil) the processor for a stage slot. Thread-safe.
     func setStage(_ stage: PipelineStage, _ processor: ProcessingStageProtocol?) {
-        stateLock.withLock { slots in
-            slots[stage] = processor
-        }
+        registry.set(stage, processor)
     }
 
     /// Registered stages in pipeline order — debug HUD "active stage list".
     var activeStages: [PipelineStage] {
-        stateLock.withLock { slots in
-            PipelineStage.allCases.filter { slots[$0] != nil }
-        }
+        registry.registeredStages
     }
 
     // MARK: ProcessingPipelineProtocol
@@ -87,8 +109,6 @@ final class DefaultProcessingPipeline: ProcessingPipelineProtocol, PipelineStage
     }
 
     private func processor(for stage: PipelineStage) -> ProcessingStageProtocol? {
-        stateLock.withLock { slots in
-            slots[stage]
-        }
+        registry.get(stage)
     }
 }
