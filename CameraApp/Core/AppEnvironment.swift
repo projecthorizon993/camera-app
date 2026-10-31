@@ -41,7 +41,25 @@ final class AppEnvironment: ObservableObject {
 
     /// T8 WIRING POINT — capture hook. The viewfinder's shutter button calls
     /// this closure (`ViewfinderScreen` reads `environment.onShutter` at tap
-    /// time, so a late assignment by Task 8 is picked up). Task 8 assigns
-    /// its capture pipeline here; the default is a no-op.
+    /// time, so a late assignment by Task 8 is picked up). Assigned once here
+    /// to the Task 8 capture pipeline: one press = one captureCurrent() run
+    /// (the controller owns busy-guarding, feedback, and outcome state).
+    /// Capture params (flash/timer/format) flow from `captureController.settings`
+    /// until the HUD chips are rebound onto them (Task 11).
     var onShutter: () -> Void = {}
+
+    init() {
+        // The closure must capture `self` weakly: AppEnvironment lives for the
+        // whole app run, but the lazy controllers are created on first touch.
+        // Strong-capturing here would retain `self` from its own init path.
+        // The explicit @MainActor Task hop keeps the capture pipeline on the
+        // main actor (SE-0461 — plain Task{} would inherit the closure's
+        // nonisolated context... which is the main actor here, but explicit
+        // is better than implicit for an @MainActor pipeline).
+        onShutter = { [weak self] in
+            Task { @MainActor in
+                await self?.captureController.captureCurrent()
+            }
+        }
+    }
 }
