@@ -228,7 +228,16 @@ struct ManualCameraPanel: View {
 
     // MARK: - Pure slider mapping helpers
 
-    private static func midpoint<T: FloatingPoint>(of range: ClosedRange<T>) -> T {
+    /// Concrete `Float`/`Double` overloads rather than a generic parameter:
+    /// `FloatingPoint` does not refine `ExpressibleByFloatLiteral` (that is
+    /// `BinaryFloatingPoint`), so the `0.5` literal in the body cannot
+    /// type-check against a bare `T` (CI fix round 1). Nothing generic was
+    /// being bought — every slider maps to one of these two types.
+    private static func midpoint(of range: ClosedRange<Float>) -> Float {
+        (range.lowerBound + range.upperBound) * 0.5
+    }
+
+    private static func midpoint(of range: ClosedRange<Double>) -> Double {
         (range.lowerBound + range.upperBound) * 0.5
     }
 

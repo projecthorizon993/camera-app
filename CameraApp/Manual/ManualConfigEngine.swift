@@ -80,7 +80,12 @@ final class ManualConfigEngine: ObservableObject {
     ) {
         self.gate = ManualServiceGate(service: service)
         self.clock = clock
-        self.ranges = service.supportedManualRanges
+        // Direct wrapper-storage initialization: `self.ranges = …` routes
+        // through the @MainActor-isolated accessor, which a nonisolated init
+        // may not call (CI fix round 1). Writing the `_ranges` storage here is
+        // pure initialization — no isolated state is read, and the value is
+        // exactly the service's `supportedManualRanges` snapshot.
+        self._ranges = Published(initialValue: service.supportedManualRanges)
     }
 
     // MARK: - Range refresh (mount / lens switch)
