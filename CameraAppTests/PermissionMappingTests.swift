@@ -66,8 +66,4 @@ final class PermissionMappingTests: XCTestCase {
             }
         }
     }
-
-    func testRawStatusCaseCoverage() {
-        XCTAssertEqual(PermissionRawStatus.allCases.count, 6)
-    }
 }

@@ -6,8 +6,9 @@ import SwiftUI
 /// the `requirePermissions` modifier does not have to be hard-wired to
 /// `AppEnvironment`.
 private struct PermissionServiceKey: EnvironmentKey {
-    /// Fallback for previews / un-injected trees. Grants access so previews
-    /// render; the running app always injects the real service.
+    /// Fallback for previews / un-injected trees. Fail-closed: it reports
+    /// `.notDetermined` so the gate renders and prompts instead of silently
+    /// granting access. The running app always injects the real service.
     static var defaultValue: any CameraPermissionServiceProtocol { DefaultPermissionService() }
 }
 
@@ -18,10 +19,13 @@ extension EnvironmentValues {
     }
 }
 
-/// Previews-only fallback. Never reached in the running app.
+/// Previews-only fallback. Never reached in the running app. Deliberately
+/// fail-closed: `status` reports `.notDetermined` (never `.granted`) and
+/// `request` reports `.denied`, so a forgotten injection surfaces the gate
+/// rather than bypassing it.
 private final class DefaultPermissionService: CameraPermissionServiceProtocol {
-    func status(of permission: AppPermission) async -> PermissionStatus { .granted }
-    func request(_ permission: AppPermission) async -> PermissionStatus { .granted }
+    func status(of permission: AppPermission) async -> PermissionStatus { .notDetermined }
+    func request(_ permission: AppPermission) async -> PermissionStatus { .denied }
 }
 
 // MARK: - PermissionGateModifier

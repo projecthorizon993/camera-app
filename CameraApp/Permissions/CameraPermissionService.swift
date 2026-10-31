@@ -77,7 +77,7 @@ final class CameraPermissionService: CameraPermissionServiceProtocol {
         case .photoLibraryAdd:
             _ = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
         case .location:
-            await requestLocationAuthorization()
+            return await requestLocationStatus()
         }
         return await status(of: permission)
     }
@@ -135,15 +135,27 @@ final class CameraPermissionService: CameraPermissionServiceProtocol {
 
     // MARK: Location
 
-    private func requestLocationAuthorization() async {
+    /// Requests location authorization and returns the resulting status.
+    ///
+    /// Short-circuits to `.denied` when Location Services are disabled globally,
+    /// so the delegate-based request can never leave its continuation pending
+    /// forever in that case. (A timeout guard against a system that never calls
+    /// back at all is deferred — out of scope for v1.)
+    private func requestLocationStatus() async -> PermissionStatus {
+        guard CLLocationManager.locationServicesEnabled() else {
+            logger.error("Location Services are disabled system-wide; reporting location as .denied")
+            return .denied
+        }
+
         // Only prompt while still undetermined; a determined state cannot be
         // changed from inside the app.
-        guard locationManager.authorizationStatus == .notDetermined else { return }
-
-        let delegate = LocationAuthorizationDelegate()
-        locationDelegate = delegate
-        _ = await delegate.requestAuthorization(manager: locationManager)
-        locationDelegate = nil
+        if locationManager.authorizationStatus == .notDetermined {
+            let delegate = LocationAuthorizationDelegate()
+            locationDelegate = delegate
+            _ = await delegate.requestAuthorization(manager: locationManager)
+            locationDelegate = nil
+        }
+        return mapPermissionStatus(Self.raw(from: locationManager.authorizationStatus), for: .location)
     }
 }
 

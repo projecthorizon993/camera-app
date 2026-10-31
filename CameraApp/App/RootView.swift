@@ -27,8 +27,9 @@ struct RootView: View {
     private func destination(for screen: AppScreen) -> some View {
         switch screen {
         case .viewfinder:
+            // Camera permission is app-wide and already gated at the root of
+            // the stack; no second gate here.
             ViewfinderPlaceholder(router: router)
-                .requirePermissions([.camera])
         case .gallery:
             GalleryPlaceholder()
         case .settings:
