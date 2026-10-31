@@ -30,6 +30,15 @@ final class AppEnvironment: ObservableObject {
     /// GPU/image processing facade. // Task 6: real stage-slot pipeline.
     lazy var pipeline: ProcessingPipelineProtocol = DefaultProcessingPipeline()
 
+    /// Capture flow (Task 8): shutter → capture → save to Photos, plus the
+    /// last-shot thumbnail and shutter feedback. Reads `cameraService` at
+    /// first touch — T7's swap of the placeholder for the real T4 service
+    /// flows into this controller automatically.
+    lazy var captureController: CaptureController = CaptureController(
+        cameraService: cameraService,
+        permissionService: permissionService
+    )
+
     /// T8 WIRING POINT — capture hook. The viewfinder's shutter button calls
     /// this closure (`ViewfinderScreen` reads `environment.onShutter` at tap
     /// time, so a late assignment by Task 8 is picked up). Task 8 assigns
