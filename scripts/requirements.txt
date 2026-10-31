@@ -1,0 +1,5 @@
+# Runtime dependencies for the extraction tooling.
+# The syntax gate (`python -m compileall scripts`) needs none of these;
+# only the parse/validate happy paths and selftest.py do.
+numpy>=1.26
+opencv-python-headless>=4.9
