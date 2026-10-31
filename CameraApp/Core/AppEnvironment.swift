@@ -18,4 +18,13 @@ final class AppEnvironment: ObservableObject {
 
     /// GPU/image processing facade. // Task 6: real stage-slot pipeline.
     lazy var pipeline: ProcessingPipelineProtocol = DefaultProcessingPipeline()
+
+    /// Capture flow (Task 8): shutter → capture → save to Photos, plus the
+    /// last-shot thumbnail and shutter feedback. Reads `cameraService` at
+    /// first touch — T7's `AppEnvironment` swap of the placeholder for the
+    /// real T4 service flows into this controller automatically.
+    lazy var captureController: CaptureController = CaptureController(
+        cameraService: cameraService,
+        permissionService: permissionService
+    )
 }
