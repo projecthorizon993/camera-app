@@ -15,6 +15,6 @@ final class AppEnvironment: ObservableObject {
     /// Hardware camera facade. // PLACEHOLDER — replaced by Task 4 (real AVCaptureSession service).
     lazy var cameraService: CameraServiceProtocol = PlaceholderCameraService()
 
-    /// GPU/image processing facade. // PLACEHOLDER — replaced by Task 6 (Metal pipeline).
-    lazy var pipeline: ProcessingPipelineProtocol = PlaceholderPipeline()
+    /// GPU/image processing facade. // Task 6: real stage-slot pipeline.
+    lazy var pipeline: ProcessingPipelineProtocol = DefaultProcessingPipeline()
 }
