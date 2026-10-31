@@ -9,10 +9,11 @@ import SwiftUI
 /// Settings" button that deep-links via `SystemSettings` (OpenURLAction from
 /// the environment — injectable in previews and tests).
 ///
-/// Naming note: the file name follows the brief, but the type is
-/// `PermissionGate` because `PermissionGateView` is already taken by the
+/// Naming note: the type is `PermissionGate` and the file is
+/// `PermissionGate.swift` because `PermissionGateView` is already taken by the
 /// plain-styled component in CameraApp/Permissions/ (left untouched; a later
-/// restyle task can swap it over to this kit component).
+/// restyle task can swap it over to this kit component). Xcode requires
+/// unique file basenames per target, hence the file rename as well.
 struct PermissionGate: View {
 
     // MARK: Inputs
