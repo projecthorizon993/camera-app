@@ -104,6 +104,10 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
         let cvLumaTexture: CVMetalTexture
         let cvChromaTexture: CVMetalTexture?
         let isBiplanar: Bool
+        /// Texture coordinates corrected for the pixel buffer's orientation
+        /// (kCVPixelBufferOrientationPropertyKey). Prevents the preview from
+        /// appearing rotated 90° when the device is held in landscape.
+        let textureCoords: [SIMD2<Float>]
     }
 
     // MARK: Immutable GPU state (set up in init)
@@ -150,6 +154,16 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
         TexturedQuadVertex(position: SIMD2<Float>(1, 1), texCoord: SIMD2<Float>(1, 0)),    // top-right
         TexturedQuadVertex(position: SIMD2<Float>(-1, -1), texCoord: SIMD2<Float>(0, 1)),  // bottom-left
         TexturedQuadVertex(position: SIMD2<Float>(1, -1), texCoord: SIMD2<Float>(1, 1)),   // bottom-right
+    ]
+
+    /// Screen-space positions only (N corners of the NDC quad). Texture
+    /// coordinates are supplied per-frame from `DrawnFrame.textureCoords` to
+    /// correct for device orientation.
+    private static let quadPositions: [SIMD2<Float>] = [
+        SIMD2<Float>(-1, 1),   // top-left
+        SIMD2<Float>(1, 1),    // top-right
+        SIMD2<Float>(-1, -1),  // bottom-left
+        SIMD2<Float>(1, -1),   // bottom-right
     ]
 
     /// Metal's inline (setVertexBytes) vertex data limit is 4 KB.
@@ -295,10 +309,17 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
 
         encoder.setRenderPipelineState(frame.isBiplanar ? yuvPipelineState : bgraPipelineState)
 
-        var quad = Self.quadVertices
+        // Build per-vertex data with orientation-corrected texture coordinates.
+        // Screen positions are fixed corners; texCoords rotate for landscape.
+        var vertices: [TexturedQuadVertex] = []
+        for i in 0..<4 {
+            let pos = Self.quadPositions[i]
+            let tc = frame.textureCoords[i]
+            vertices.append(TexturedQuadVertex(position: pos, texCoord: tc))
+        }
         encoder.setVertexBytes(
-            &quad,
-            length: MemoryLayout<TexturedQuadVertex>.stride * quad.count,
+            &vertices,
+            length: MemoryLayout<TexturedQuadVertex>.stride * vertices.count,
             index: 0
         )
         encoder.setFragmentSamplerState(sampler, index: 0)
@@ -414,6 +435,9 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
     }
 
     /// Wraps the pending buffer's planes as Metal textures (zero-copy).
+    /// Reads the pixel buffer's orientation property (kCVPixelBufferOrientationPropertyKey)
+    /// and returns texture coordinates corrected so the preview matches the
+    /// device's physical orientation — prevents the 90° rotation in landscape.
     private func makeDrawnFrame(from frame: PendingFrame) -> DrawnFrame? {
         let isBiplanar = CVPixelBufferGetPlaneCount(frame.pixelBuffer) == 2
 
@@ -447,13 +471,52 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
             chroma = texture
         }
 
+        // Read orientation from the pixel buffer's attachments.
+        let orientation = Self.orientation(for: frame.pixelBuffer)
+        let textureCoords = Self.textureCoords(for: orientation)
+
         return DrawnFrame(
             sequence: frame.sequence,
             lumaTexture: luma,
             chromaTexture: chroma,
             cvLumaTexture: cvLuma,
             cvChromaTexture: cvChroma,
-            isBiplanar: isBiplanar
+            isBiplanar: isBiplanar,
+            textureCoords: textureCoords
         )
+    }
+
+    // MARK: Orientation helpers
+
+    /// Reads `kCVPixelBufferOrientationPropertyKey` from the buffer's
+    /// attachments. Returns 1 (normal) when unset or unreadable.
+    private static func orientation(for buffer: CVPixelBuffer) -> Int {
+        let attachments = CVPixelBufferGetAttachments(buffer, .propagate) as? [String: Any]
+        let key = String(kCVPixelBufferOrientationPropertyKey)
+        let orientation = attachments?[key] as? Int ?? 1
+        Logger.debug("pixel buffer orientation: \(orientation)", category: .pipeline)
+        return orientation
+    }
+
+    /// Returns per-vertex texture coordinates (top-left, top-right,
+    /// bottom-left, bottom-right) remapped for the given CoreVideo orientation.
+    /// Orientation 1 is the identity mapping; 6 rotates 90° CW; 8 rotates 270° CW.
+    private static func textureCoords(for orientation: Int) -> [SIMD2<Float>] {
+        let tl = SIMD2<Float>(0, 0)
+        let tr = SIMD2<Float>(1, 0)
+        let bl = SIMD2<Float>(0, 1)
+        let br = SIMD2<Float>(1, 1)
+
+        switch orientation {
+        case 1:   return [tl, tr, bl, br]                    // normal
+        case 2:   return [tr, tl, br, bl]                    // flip horizontal
+        case 3:   return [br, bl, tr, tl]                    // rotate 180
+        case 4:   return [bl, br, tl, tr]                    // flip vertical
+        case 5:   return [bl, tl, br, tr]                    // transpose
+        case 6:   return [bl, tl, br, tr]                    // rotate 90 CW
+        case 7:   return [tl, tr, bl, br]                    // rare edge case: treat as normal
+        case 8:   return [tr, br, tl, bl]                    // rotate 270 CW
+        default:  return [tl, tr, bl, br]
+        }
     }
 }

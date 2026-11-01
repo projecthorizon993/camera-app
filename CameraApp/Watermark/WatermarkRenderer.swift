@@ -3,6 +3,7 @@ import CoreGraphics
 import CoreText
 import CoreVideo
 import CoreImage
+import os
 
 // MARK: - WatermarkError
 
@@ -60,8 +61,11 @@ final class WatermarkRenderer: WatermarkRendererProtocol, ProcessingStageProtoco
             WatermarkPlanner.resolve(content: $0.content, exif: exif, metadata: [:])
         }
         if resolved.isEmpty {
+            Logger.pipeline("watermark passthrough: no lines resolved")
             return input
         }
+
+        Logger.pipeline("watermark render: template=\(template.id) position=\(position) opacity=\(opacity)")
 
         let box = PixelBufferBox(buffer: input)
         let result = try await Task.detached(priority: .userInitiated) { [self] in

@@ -1,11 +1,13 @@
 {
   "lensID": "wide",
   "distortion": {
-    "k1": 0.0,
-    "k2": 0.0,
-    "k3": 0.0
+    "k1": -0.025,
+    "k2": 0.005,
+    "k3": -0.001
   },
-  "caOffsets": 0.0,
-  "vignetteGain": 1.0,
-  "source": "neutral"
+  "principalPointX": 0.50,
+  "principalPointY": 0.50,
+  "caOffsets": 0.002,
+  "vignetteGain": 0.92,
+  "source": "bundledJSON"
 }

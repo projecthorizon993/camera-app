@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import os
 
 // Task 15 — gallery screen.
 
@@ -8,6 +9,7 @@ struct GalleryScreen: View {
     @State private var viewerItem: GalleryItem?
     @State private var sharePresented: Bool = false
     @State private var shareURL: URL?
+    @State private var showPhotosAlert = false
 
     var body: some View {
         Group {
@@ -37,6 +39,14 @@ struct GalleryScreen: View {
                 }
                 .padding()
             }
+        }
+        .confirmationDialog("Open in Photos", isPresented: $showPhotosAlert) {
+            Button("Open Stock Photos App") {
+                openStockPhotos()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Open the system Photos app to view your full camera roll.")
         }
     }
 
@@ -136,6 +146,13 @@ struct GalleryScreen: View {
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button {
+                showPhotosAlert = true
+            } label: {
+                Image(systemName: "photo.on.rectangle")
+            }
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
                 Task {
                     guard let id = (model.selected.isEmpty ? model.items.first?.id : model.selected.first),
                           let item = model.items.first(where: { $0.id == id }) else { return }
@@ -147,4 +164,18 @@ struct GalleryScreen: View {
             }
         }
     }
+
+    // MARK: - Actions
+
+    private func openStockPhotos() {
+        let photosURL = URL(string: "photos-redirect://")!
+        if UIApplication.shared.canOpenURL(photosURL) {
+            UIApplication.shared.open(photosURL)
+        } else {
+            let alt = URL(string: "com.apple.mobileslideshow://")!
+            UIApplication.shared.open(alt)
+        }
+        Logger.ui("opened stock Photos app from gallery")
+    }
+
 }

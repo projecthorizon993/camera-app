@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import CoreMedia
 import CoreVideo
+import os
 
 enum VideoError: Error, Sendable {
     case writerUnavailable
@@ -14,6 +15,7 @@ enum VideoError: Error, Sendable {
 final class VideoRecorder: @unchecked Sendable {
 
     nonisolated func startRun(config: VideoRecordingConfig, directory: URL) throws -> RecordingSession {
+        Logger.session("video startRun: codec=\(config.codec) resolution=\(config.resolution) fps=\(config.fps) audio=\(config.withAudio)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
         let fileName = Self.makeFileName(losslessAudio: config.losslessAudio)
@@ -177,6 +179,7 @@ final class RecordingSession: @unchecked Sendable {
                 finished = true
                 lock.unlock()
 
+                Logger.session("video finish: \(url.lastPathComponent)")
                 videoInput.markAsFinished()
                 audioInput?.markAsFinished()
 

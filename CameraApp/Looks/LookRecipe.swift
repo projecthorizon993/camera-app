@@ -45,8 +45,8 @@ enum LookRecipes {
             return LookRecipe(lift: 0, gamma: 1.0, gain: 1.0, saturation: 1.0,
                               warmth: 0, tint: 0, contrastS: 1.0, fade: 0)
         case .authentic:
-            return LookRecipe(lift: 0.02, gamma: 1.0, gain: 1.0, saturation: 1.05,
-                              warmth: 0.03, tint: 0, contrastS: 1.05, fade: 0.02)
+            return LookRecipe(lift: 0.03, gamma: 0.95, gain: 1.05, saturation: 1.10,
+                              warmth: 0.04, tint: 0.01, contrastS: 1.15, fade: 0.04)
         case .vibrant:
             return LookRecipe(lift: 0.0, gamma: 1.0, gain: 1.05, saturation: 1.25,
                               warmth: 0.01, tint: 0, contrastS: 1.1, fade: 0.0)

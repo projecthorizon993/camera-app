@@ -51,6 +51,7 @@ final class LookEngine: LookEngineProtocol, @unchecked Sendable {
             }
             st.loaded = id
         }
+        Logger.pipeline("look loaded: \(id.rawValue)")
     }
 
     func apply(_ input: CVPixelBuffer, look: LookID, strength: Double) async throws -> CVPixelBuffer {

@@ -48,7 +48,7 @@ struct RootView: View {
         case .gallery:
             GalleryScreen(model: environment.galleryModel)
         case .settings:
-            SettingsPlaceholder()
+            SettingsView(environment: environment)
         }
     }
 }

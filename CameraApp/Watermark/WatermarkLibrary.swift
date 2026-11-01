@@ -11,6 +11,7 @@ enum WatermarkLibrary {
             displayName: "Signature Bar",
             lines: [
                 WatermarkLine(content: .deviceModel, relativeFontSize: 1.0),
+                WatermarkLine(content: .literal("CameraApp"), relativeFontSize: 0.6),
                 WatermarkLine(content: .focalAperture, relativeFontSize: 0.85),
                 WatermarkLine(content: .shutterISO, relativeFontSize: 0.85),
                 WatermarkLine(content: .timestamp("yyyy-MM-dd HH:mm"), relativeFontSize: 0.8),
@@ -18,7 +19,7 @@ enum WatermarkLibrary {
             divider: WatermarkDivider(thicknessFraction: 0.0015, widthFraction: 0.6,
                                      colorHex: "#FFFFFF"),
             alignment: .center,
-            fontScale: 0.04,
+            fontScale: 0.06,
             textColorHex: "#FFFFFF",
             backgroundBar: true
         ),

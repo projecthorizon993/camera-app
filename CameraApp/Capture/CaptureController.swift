@@ -1,10 +1,10 @@
 import Foundation
 import Combine
 import Observation
+import os
 
 // Task 8 — the app-layer capture flow: shutter action → photo capture → save
-// to Photos, plus the last-shot thumbnail and capture feedback state.
-//
+// to Photos, plus the last-shot thumbnail and capture feedback state.//
 // INTEGRATION — the single wiring point for T7's `ViewfinderScreen` (one call):
 //
 //     ShutterButton action → `await env.captureController.captureCurrent()`
@@ -79,6 +79,13 @@ final class CaptureSettingsModel {
 
     var format: CaptureFormat = .jpeg
 
+    /// Pro mode: when enabled, applies the selected color look and full
+    /// manual control surface to every capture. Off = "auto" point-and-shoot.
+    var proMode: Bool = false
+
+    /// Active color look when pro mode is on. `.none` bypasses the look stage.
+    var selectedLook: LookID = .none
+
     /// Sets the capture format, enforcing the platform exclusivity rule
     /// (plan §7): RAW is mutually exclusive with flash. Selecting `.dng`
     /// resets flash to `.off`; other formats leave flash untouched. Task 12's
@@ -97,8 +104,7 @@ final class CaptureSettingsModel {
             timerSeconds: timerSeconds,
             orientation: orientation
         )
-    }
-}
+    }}
 
 // MARK: - CaptureController
 
@@ -162,6 +168,7 @@ final class CaptureController: ObservableObject {
     /// The captured payload is handed to `PhotoSaver` on a detached task and
     /// the outcome is published; every failure becomes `CaptureOutcome.failed`.
     func capture(settings: PhotoCaptureSettings) async {
+        Logger.session("shutter press: format=\(settings.format) flash=\(settings.flash) timer=\(settings.timerSeconds)")
         guard !isCapturing else { return }
         isCapturing = true
         isTimerArmed = settings.timerSeconds > 0
@@ -172,6 +179,7 @@ final class CaptureController: ObservableObject {
 
         do {
             let photo = try await cameraService.capturePhoto(settings)
+            Logger.session("capture complete: \(photo.width)×\(photo.height) format=\(photo.format)")
             // The frame just landed: fire the visual trigger and, when
             // enabled, the system shutter click.
             feedback.shotFired()
@@ -179,14 +187,18 @@ final class CaptureController: ObservableObject {
             let saveOutcome = await save(photo)
             switch saveOutcome {
             case .saved:
+                Logger.save("photo saved to library")
                 lastResult = .saved(photo)
                 thumbnail.record(photo)
             case .needsPermission:
+                Logger.ui("photo library permission required")
                 lastResult = .needsPermission
             case .failed(let reason):
+                Logger.fail("save failed: \(reason)")
                 lastResult = .failed(reason)
             }
         } catch {
+            Logger.fail("capture failed: \(error.localizedDescription)")
             lastResult = .failed(CaptureController.reason(for: error))
         }
     }

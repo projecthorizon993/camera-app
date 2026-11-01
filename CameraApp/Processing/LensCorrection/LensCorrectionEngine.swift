@@ -205,8 +205,8 @@ final class LensCorrectionEngine: LensCorrectionProtocol, ProcessingStageProtoco
             ca: ca,
             vignetteGain: vignetteGain,
             strength: strengthF,
-            centerX: Float(0.5),
-            centerY: Float(0.5),
+            centerX: Float(profile.principalPointX),
+            centerY: Float(profile.principalPointY),
             hasChroma: hasChromaFlag
         )
         encoder.setBytes(&params, length: MemoryLayout<FusedWarpParams>.stride, index: 0)
