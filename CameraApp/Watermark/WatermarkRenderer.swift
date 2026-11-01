@@ -110,8 +110,10 @@ final class WatermarkRenderer: WatermarkRendererProtocol, ProcessingStageProtoco
             return PixelBufferBox(buffer: input)
         } else {
             // Non-BGRA: lock read-only, blit via CGImage/CoreImage round-trip,
-            // then draw into the fresh 32BGRA buffer.
-            let roFlag = kCVPixelBufferLock_ReadOnly
+            // then draw into the fresh 32BGRA buffer. (kCVPixelBufferLock_ReadOnly
+            // is a C #define and never imports into Swift — the overlay's
+            // CVPixelBufferLockFlags.readOnly is the Swift form.)
+            let roFlag: CVPixelBufferLockFlags = .readOnly
             CVPixelBufferLockBaseAddress(input, roFlag)
             let ciImage = CIImage(cvPixelBuffer: input)
             CVPixelBufferUnlockBaseAddress(input, roFlag)
