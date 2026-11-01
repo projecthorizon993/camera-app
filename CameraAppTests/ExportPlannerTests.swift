@@ -101,8 +101,11 @@ final class ExportPlannerTests: XCTestCase {
                                  width: 4, height: 4, exifSummary: nil)
         let result = await processor.process(photo, plan: ExportPlan(format: .jpeg))
         XCTAssertTrue(result.fellBack)
-        XCTAssertEqual(result.photo, photo)
         XCTAssertEqual(result.stagesApplied, [])
+        XCTAssertEqual(result.photo.data, photo.data)
+        XCTAssertEqual(result.photo.format, photo.format)
+        XCTAssertEqual(result.photo.width, photo.width)
+        XCTAssertEqual(result.photo.height, photo.height)
     }
 
     func testFallbackThrowingPipeline() async {
@@ -111,8 +114,11 @@ final class ExportPlannerTests: XCTestCase {
         let processor = ExportProcessor(pipeline: ThrowingPipeline())
         let result = await processor.process(photo, plan: ExportPlan(format: .jpeg))
         XCTAssertTrue(result.fellBack)
-        XCTAssertEqual(result.photo, photo)
         XCTAssertEqual(result.stagesApplied, [])
+        XCTAssertEqual(result.photo.data, photo.data)
+        XCTAssertEqual(result.photo.format, photo.format)
+        XCTAssertEqual(result.photo.width, photo.width)
+        XCTAssertEqual(result.photo.height, photo.height)
     }
 
     // MARK: - Helpers

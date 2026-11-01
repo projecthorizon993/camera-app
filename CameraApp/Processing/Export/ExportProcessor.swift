@@ -5,7 +5,7 @@ import ImageIO
 // MARK: - ProcessedExport
 
 /// Result of one processed export (unit-testable value).
-struct ProcessedExport: Sendable, Equatable {
+struct ProcessedExport: Sendable {
     let photo: CapturedPhoto        // what to save (input identity when .dng or fallback)
     let stagesApplied: [PipelineStage]
     let fellBack: Bool              // true when processing failed → original passed through
