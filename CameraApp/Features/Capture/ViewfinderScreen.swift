@@ -77,7 +77,12 @@ struct ViewfinderScreen: View {
         }
         .viewfinderSlot(.top) { hudRow }
         .viewfinderSlot(.bottom) {
-            ControlsBar(hud: hud, onShutter: { environment.onShutter() }, router: router)
+            VStack(spacing: Theme.Spacing.s) {
+                // Task 10: manual lens dial — pin row above the controls bar;
+                // hidden on the front camera (inside `LensPicker`).
+                LensPicker(hud: hud)
+                ControlsBar(hud: hud, onShutter: { environment.onShutter() }, router: router)
+            }
         }
         .sheet(isPresented: Binding(
             get: { hud.manualPanelVisible },
