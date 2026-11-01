@@ -105,4 +105,3 @@ final class BracketEngineTests: XCTestCase {
         XCTAssertEqual(CVPixelBufferGetHeight(out), 4)
     }
 }
-EOF
