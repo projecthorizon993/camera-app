@@ -86,7 +86,13 @@ struct ViewfinderScreen: View {
                 // Task 10: manual lens dial — pin row above the controls bar;
                 // hidden on the front camera (inside `LensPicker`).
                 LensPicker(hud: hud)
-                ControlsBar(hud: hud, onShutter: { environment.onShutter() }, router: router)
+                ControlsBar(
+                    hud: hud,
+                    recordingHUD: environment.recordingHUDState,
+                    onShutter: { environment.onShutter() },
+                    onVideoShutter: { Task { @MainActor in await environment.videoController.toggle() } },
+                    router: router
+                )
             }
         }
         .sheet(isPresented: Binding(
@@ -169,37 +175,33 @@ struct ViewfinderScreen: View {
     /// grid / manual stay UI-local.
     private var hudRow: some View {
         HStack(spacing: Theme.Spacing.m) {
-            HUDChip(icon: hud.flashIcon, state: hud.flashMode == .off ? .off : .on) {
-                hud.cycleFlash()
-            }
-            .disabled(hud.format == .dng)
-            .opacity(hud.format == .dng ? Theme.Opacity.dimmed : 1)
-            // Task 11: format chip — cycles JPEG → HEIF → DNG (wraps) through
-            // `hud.selectFormat`, which enforces the RAW/flash exclusivity
-            // rule (plan §7): while `.dng` is armed, the flash chip above is
-            // dimmed/disabled and `cycleFlash()` is a no-op. Task 12's
-            // bracketing inherits the same exclusivity rule via
-            // `PackageCaptureSettings` reading these same settings.
-            HUDChip(
-                icon: "photo",
-                label: hud.format == .jpeg ? "JPEG" : (hud.format == .heif ? "HEIF" : "DNG"),
-                state: .off
-            ) {
-                let next: CaptureFormat
-                switch hud.format {
-                case .jpeg: next = .heif
-                case .heif: next = .dng
-                case .dng: next = .jpeg
+            if hud.captureMode != .video {
+                HUDChip(icon: hud.flashIcon, state: hud.flashMode == .off ? .off : .on) {
+                    hud.cycleFlash()
                 }
-                hud.selectFormat(next)
-            }
-            .fixedSize()
-            HUDChip(
-                icon: "timer",
-                label: hud.timerSeconds > 0 ? "\(hud.timerSeconds)s" : nil,
-                state: hud.timerSeconds > 0 ? .on : .off
-            ) {
-                hud.cycleTimer()
+                .disabled(hud.format == .dng)
+                .opacity(hud.format == .dng ? Theme.Opacity.dimmed : 1)
+                HUDChip(
+                    icon: "photo",
+                    label: hud.format == .jpeg ? "JPEG" : (hud.format == .heif ? "HEIF" : "DNG"),
+                    state: .off
+                ) {
+                    let next: CaptureFormat
+                    switch hud.format {
+                    case .jpeg: next = .heif
+                    case .heif: next = .dng
+                    case .dng: next = .jpeg
+                    }
+                    hud.selectFormat(next)
+                }
+                .fixedSize()
+                HUDChip(
+                    icon: "timer",
+                    label: hud.timerSeconds > 0 ? "\(hud.timerSeconds)s" : nil,
+                    state: hud.timerSeconds > 0 ? .on : .off
+                ) {
+                    hud.cycleTimer()
+                }
             }
             HUDChip(icon: "grid.3x3", label: "Grid", state: hud.gridVisible ? .on : .off) {
                 hud.gridVisible.toggle()

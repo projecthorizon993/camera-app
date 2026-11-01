@@ -12,14 +12,18 @@ import SwiftUI
 struct ControlsBar: View {
 
     let hud: CaptureHUDState
+    /// T14: recording HUD state (optional; drives record button style + status).
+    let recordingHUD: RecordingHUDState?
     /// T8 wiring point: called by the shutter button (read live from
     /// `environment.onShutter` by the screen).
     let onShutter: () -> Void
+    /// T14: video shutter tap.
+    let onVideoShutter: () -> Void
     let router: Router
 
     /// Only photo is wired for now; the rest render dimmed and stay inert
     /// ("coming soon" handling lives with the consumer, per the kit doc).
-    private static let soonModes: Set<CaptureMode> = [.video, .night, .timelapse]
+    private static let soonModes: Set<CaptureMode> = [.night, .timelapse]
 
     var body: some View {
         VStack(spacing: Theme.Spacing.m) {
@@ -27,6 +31,13 @@ struct ControlsBar: View {
                 Text(message)
                     .font(Theme.Typography.hud)
                     .foregroundStyle(Theme.Color.danger)
+                    .multilineTextAlignment(.center)
+                    .transition(.opacity)
+            }
+            if let status = recordingHUD?.statusText {
+                Text(status)
+                    .font(Theme.Typography.hud)
+                    .foregroundStyle(Theme.Color.accent)
                     .multilineTextAlignment(.center)
                     .transition(.opacity)
             }
@@ -83,7 +94,14 @@ struct ControlsBar: View {
                 router.push(.gallery)
             }
             Spacer(minLength: 0)
-            ShutterButton(mode: .photo, action: onShutter)
+            if hud.captureMode == .video {
+                let shutterMode: ShutterButton.Mode = (recordingHUD?.isRecording == true)
+                    ? .recording(elapsed: recordingHUD?.elapsedSeconds ?? 0)
+                    : .recordIdle
+                ShutterButton(mode: shutterMode, action: onVideoShutter)
+            } else {
+                ShutterButton(mode: .photo, action: onShutter)
+            }
             Spacer(minLength: 0)
             HUDChip(icon: "arrow.triangle.2.circlepath.camera", state: .off) {
                 hud.flipCamera()
