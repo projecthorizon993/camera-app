@@ -66,7 +66,7 @@ jobs:
         run: >
           xcodebuild -project CameraApp.xcodeproj -scheme CameraApp
           -configuration Debug -sdk iphonesimulator
-          -destination 'platform=iOS Simulator,OS=17.0,name=iPhone 11 Pro Max'
+          -destination 'generic/platform=iOS Simulator'
           test
 
   python:
