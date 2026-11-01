@@ -62,11 +62,19 @@ jobs:
           echo "DEVELOPER_DIR=$XCODE_APP/Contents/Developer" >> "$GITHUB_ENV"
       - name: Generate project
         run: brew install xcodegen && xcodegen generate
+      - name: Discover simulator destination
+        run: |
+          DEST="$(DEVELOPER_DIR="$XCODE_APP/Contents/Developer" xcodebuild -showdestinations -scheme CameraApp | grep -m1 -oE 'platform:iOS Simulator,[^ ]+')"
+          if [ -z "$DEST" ]; then
+            echo "::error::No iOS Simulator destination found"
+            exit 1
+          fi
+          echo "SIM_DEST=$DEST" >> "$GITHUB_ENV"
       - name: Run unit tests
         run: >
           xcodebuild -project CameraApp.xcodeproj -scheme CameraApp
           -configuration Debug -sdk iphonesimulator
-          -destination 'generic/platform=iOS Simulator'
+          -destination "$SIM_DEST"
           test
 
   python:
