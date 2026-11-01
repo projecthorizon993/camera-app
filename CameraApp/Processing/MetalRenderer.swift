@@ -323,10 +323,13 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
             height: CGFloat(frame.lumaTexture.height)
         )
         let rect = Self.aspectFitRect(bufferSize: bufferSize, in: drawableSize)
-        let rx = Float(rect.origin.x)
-        let ry = Float(rect.origin.y)
-        let rw = Float(rect.origin.x + rect.width)
-        let rh = Float(rect.origin.y + rect.height)
+        // Convert pixel rect to Metal NDC (-1 to 1):
+        // x_ndc = (2 * x / width) - 1
+        // y_ndc = 1 - (2 * y / height)   (flip Y: pixel down → NDC up)
+        let rx = Float(2.0 * rect.origin.x / drawableSize.width - 1.0)
+        let ry = Float(1.0 - 2.0 * rect.origin.y / drawableSize.height)
+        let rw = Float(2.0 * (rect.origin.x + rect.width) / drawableSize.width - 1.0)
+        let rh = Float(1.0 - 2.0 * (rect.origin.y + rect.height) / drawableSize.height)
         let positions: [SIMD2<Float>] = [
             SIMD2<Float>(rx, ry),
             SIMD2<Float>(rw, ry),
