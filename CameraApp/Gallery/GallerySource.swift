@@ -54,7 +54,6 @@ final class LiveGallerySource: GalleryProviding, @unchecked Sendable {
         await Task.detached(priority: .userInitiated) { () -> [GalleryItem] in
             let options = PHFetchOptions()
             options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-            options.includeAllBursts = false
             if limit > 0 { options.fetchLimit = limit * 2 }
             let result = PHAsset.fetchAssets(with: options)
             var items: [GalleryItem] = []
