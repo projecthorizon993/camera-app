@@ -99,7 +99,9 @@ final class LensCorrectionEngine: LensCorrectionProtocol, ProcessingStageProtoco
             profile = try storedProfileOrThrow(for: lens)
         }
         guard let profile = profile, strength > 0 else { return input }
-        return try await applyOffCallerActor(PixelBufferBox(buffer: input), profile: profile, strength: strength)
+        // applyOffCallerActor hands the result back inside the box; unwrap it
+        // for the public CVPixelBuffer-returning contract.
+        return try await applyOffCallerActor(PixelBufferBox(buffer: input), profile: profile, strength: strength).buffer
     }
 
     // MARK: ProcessingStageProtocol
@@ -186,16 +188,26 @@ final class LensCorrectionEngine: LensCorrectionProtocol, ProcessingStageProtoco
         }
 
         encoder.setComputePipelineState(pipeline)
+        // Named sub-expressions: the inline literal row below exceeded the
+        // type-checker's expression-timeout budget (LD007) when written as
+        // one 9-argument call with mixed Float/Double coercions.
+        let k1 = Float(profile.distortion.k1 * strength)
+        let k2 = Float(profile.distortion.k2 * strength)
+        let k3 = Float(profile.distortion.k3 * strength)
+        let ca = Float(profile.caOffsets * strength)
+        let vignetteGain = Float(profile.vignetteGain * strength)
+        let strengthF = Float(strength)
+        let hasChromaFlag: UInt32 = hasChroma ? 1 : 0
         var params = FusedWarpParams(
-            k1: Float(profile.distortion.k1 * strength),
-            k2: Float(profile.distortion.k2 * strength),
-            k3: Float(profile.distortion.k3 * strength),
-            ca: Float(profile.caOffsets * strength),
-            vignetteGain: Float(profile.vignetteGain * strength),
-            strength: Float(strength),
-            centerX: 0.5,
-            centerY: 0.5,
-            hasChroma: hasChroma ? 1 : 0
+            k1: k1,
+            k2: k2,
+            k3: k3,
+            ca: ca,
+            vignetteGain: vignetteGain,
+            strength: strengthF,
+            centerX: Float(0.5),
+            centerY: Float(0.5),
+            hasChroma: hasChromaFlag
         )
         encoder.setBytes(&params, length: MemoryLayout<FusedWarpParams>.stride, index: 0)
         encoder.setTexture(lumaTexture, index: 0)
@@ -214,8 +226,10 @@ final class LensCorrectionEngine: LensCorrectionProtocol, ProcessingStageProtoco
         encoder.endEncoding()
 
         commandBuffer.commit()
-        // TODO(T20): replace with addCompletionHandler + withCheckedContinuation — do not copy waitUntilCompleted into production stages
-        commandBuffer.waitUntilCompleted()
+        // waitUntilCompleted is unavailable from async contexts (Swift 6);
+        // the overlay's async completed() is the scoped Awaitable replacement
+        // (resolves the former TODO — no manual continuation needed).
+        await commandBuffer.completed()
 
         if let gpuError = commandBuffer.error {
             throw LensCorrectionError.warpFailed("\(gpuError)")
