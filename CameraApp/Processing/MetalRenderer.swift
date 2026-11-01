@@ -317,20 +317,21 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
 
         // Build per-vertex data with aspect-fit screen positions and
         // orientation-corrected texture coordinates.
-        let drawableSize = CGSize(
-            width: Float(view.drawableSize.width),
-            height: Float(view.drawableSize.height)
-        )
+        let drawableSize = view.drawableSize
         let bufferSize = CGSize(
             width: CGFloat(frame.lumaTexture.width),
             height: CGFloat(frame.lumaTexture.height)
         )
         let rect = Self.aspectFitRect(bufferSize: bufferSize, in: drawableSize)
+        let rx = Float(rect.origin.x)
+        let ry = Float(rect.origin.y)
+        let rw = Float(rect.origin.x + rect.width)
+        let rh = Float(rect.origin.y + rect.height)
         let positions: [SIMD2<Float>] = [
-            SIMD2<Float>(Float(rect.origin.x), Float(rect.origin.y)),
-            SIMD2<Float>(Float(rect.origin.x + rect.width), Float(rect.origin.y)),
-            SIMD2<Float>(Float(rect.origin.x), Float(rect.origin.y + rect.height)),
-            SIMD2<Float>(Float(rect.origin.x + rect.width), Float(rect.origin.y + rect.height))
+            SIMD2<Float>(rx, ry),
+            SIMD2<Float>(rw, ry),
+            SIMD2<Float>(rx, rh),
+            SIMD2<Float>(rw, rh)
         ]
         var vertices: [TexturedQuadVertex] = []
         for i in 0..<4 {
