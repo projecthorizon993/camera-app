@@ -54,6 +54,10 @@ final class CaptureHUDState {
     private(set) var capabilities: CameraCapabilities = .iPhone11ProMaxFallback
     private(set) var lenses: [LensInfo] = []
 
+    /// Lens the user pinned (manual optical selection); nil = Auto (continuous
+    /// zoom with optical handoff). Task 10.
+    private(set) var pinnedLens: CameraLensID? = nil
+
     // MARK: - Plumbing
 
     /// Async protocol members only (`startSession`) — awaiting from
@@ -76,6 +80,9 @@ final class CaptureHUDState {
     /// Re-entrancy guard for `beginSession` (`.task` and `.onAppear` may
     /// both fire on mount).
     private var isBeginning = false
+
+    /// Re-entrancy guard for `pinLens` (mirrors the `beginSession` pattern).
+    private var isSwitchingLens = false
 
     /// Monotonic seconds; injectable so throttle behaviour is testable.
     private let clock: @Sendable () -> Double
@@ -195,7 +202,7 @@ final class CaptureHUDState {
     /// Binding entry: clamps into the current range, updates UI state
     /// immediately (fluid dial), and throttled-pushes to the device.
     func setZoomFactor(_ candidate: CGFloat) {
-        let clamped = min(max(candidate, zoomRange.lowerBound), zoomRange.upperBound)
+        let clamped = clampedZoomFactor(for: candidate)
         zoomFactor = clamped
         pushZoomThrottled()
     }
@@ -203,7 +210,23 @@ final class CaptureHUDState {
     /// Drag end / stop tap: unconditional push so the final value lands.
     func commitZoom() {
         lastZoomPushAt = clock()
-        pushZoom(zoomFactor)
+        pushZoom(clampedZoomFactor(for: zoomFactor))
+    }
+
+    /// Task 10: while a lens is pinned, clamp into that lens's optical block so
+    /// the service never hands off mid-pin; un-pinned (Auto) keeps the full
+    /// capability range.
+    private func clampedZoomFactor(for candidate: CGFloat) -> CGFloat {
+        let lower = zoomRange.lowerBound
+        let upper = zoomRange.upperBound
+        guard let pinned = pinnedLens, pinned != .front else { return min(max(candidate, lower), upper) }
+        guard let block = ZoomStopPlanner.opticalBlock(
+            lenses: lenses,
+            position: position,
+            teleFactor: capabilities.teleFactor,
+            lens: pinned
+        ) else { return min(max(candidate, lower), upper) }
+        return min(max(candidate, block.lowerBound), block.upperBound)
     }
 
     private func pushZoomThrottled() {
@@ -218,6 +241,36 @@ final class CaptureHUDState {
         Task {
             _ = await controls.setZoom(factor)
         }
+    }
+
+    // MARK: - Lens pin (Task 10)
+
+    /// Pins the camera to a logical lens (manual optical selection; `nil` = Auto
+    /// / continuous zoom). Forced selection still routes through the off-main
+    /// gate — even when the lens already matches, the semantics are "hold this
+    /// lens". Re-entrancy-guarded like `beginSession`.
+    func pinLens(_ id: CameraLensID) {
+        guard !isSwitchingLens else { return }
+        isSwitchingLens = true
+        let controls = self.controls
+        Task { [weak self] in
+            guard let self else { return }
+            let result = await controls.selectLens(id)
+            switch result {
+            case .success(let snapshot):
+                self.applySnapshot(snapshot)
+                self.pinnedLens = id
+            case .failure(let failure):
+                self.controlErrorText = failure.message
+            }
+            self.isSwitchingLens = false
+        }
+    }
+
+    /// Clears the pin (Auto): continuous optical zoom resumes on the next
+    /// throttled push. No service call.
+    func unpinLens() {
+        pinnedLens = nil
     }
 
     // MARK: - Device switching
@@ -237,6 +290,7 @@ final class CaptureHUDState {
                 position = target
                 currentLens = (target == .front) ? .front : .wide
                 zoomFactor = 1
+                pinnedLens = nil
             case .failure(let failure):
                 controlErrorText = failure.message
             }
