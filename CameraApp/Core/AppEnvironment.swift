@@ -69,6 +69,12 @@ final class AppEnvironment: ObservableObject {
 
     /// Task 17 integration: look stage.
     lazy var lookEngine: LookEngine = LookEngine()
+    // Task 18 integration:
+    lazy var nightController: NightCaptureController = NightCaptureController(
+        service: cameraService,
+        permissionService: permissionService
+    )
+    lazy var timelapseController: TimelapseController = TimelapseController(service: cameraService)
 
     init() {
         // The closure must capture `self` weakly: AppEnvironment lives for the

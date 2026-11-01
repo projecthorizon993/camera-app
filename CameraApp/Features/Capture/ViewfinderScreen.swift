@@ -91,6 +91,18 @@ struct ViewfinderScreen: View {
                     recordingHUD: environment.recordingHUDState,
                     onShutter: { environment.onShutter() },
                     onVideoShutter: { Task { @MainActor in await environment.videoController.toggle() } },
+                    onNightShutter: { Task { @MainActor in await environment.nightController.capture() } },
+                    onTimelapseShutter: {
+                        Task { @MainActor in
+                            if case .running = environment.timelapseController.phase {
+                                await environment.timelapseController.stop()
+                            } else {
+                                await environment.timelapseController.start(plan: TimelapsePlan(outputFPS: 30, targetFrames: 120))
+                            }
+                        }
+                    },
+                    nightController: environment.nightController,
+                    timelapseController: environment.timelapseController,
                     router: router
                 )
             }

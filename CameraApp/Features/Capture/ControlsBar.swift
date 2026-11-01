@@ -19,11 +19,18 @@ struct ControlsBar: View {
     let onShutter: () -> Void
     /// T14: video shutter tap.
     let onVideoShutter: () -> Void
+    /// Task 18: night shutter tap.
+    var onNightShutter: () -> Void = {}
+    /// Task 18: timelapse shutter tap.
+    var onTimelapseShutter: () -> Void = {}
+    /// Task 18: optional controllers for progress display.
+    var nightController: NightCaptureController? = nil
+    var timelapseController: TimelapseController? = nil
     let router: Router
 
     /// Only photo is wired for now; the rest render dimmed and stay inert
     /// ("coming soon" handling lives with the consumer, per the kit doc).
-    private static let soonModes: Set<CaptureMode> = [.night, .timelapse]
+    private static let soonModes: Set<CaptureMode> = []
 
     var body: some View {
         VStack(spacing: Theme.Spacing.m) {
@@ -36,6 +43,20 @@ struct ControlsBar: View {
             }
             if let status = recordingHUD?.statusText {
                 Text(status)
+                    .font(Theme.Typography.hud)
+                    .foregroundStyle(Theme.Color.accent)
+                    .multilineTextAlignment(.center)
+                    .transition(.opacity)
+            }
+            if hud.captureMode == .night, case .capturing(let done, let total) = nightController?.phase {
+                Text("Night \(done)/\(total)")
+                    .font(Theme.Typography.hud)
+                    .foregroundStyle(Theme.Color.accent)
+                    .multilineTextAlignment(.center)
+                    .transition(.opacity)
+            }
+            if hud.captureMode == .timelapse, case .running(let done, let total) = timelapseController?.phase {
+                Text("Timelapse \(done)/\(total)")
                     .font(Theme.Typography.hud)
                     .foregroundStyle(Theme.Color.accent)
                     .multilineTextAlignment(.center)
@@ -99,6 +120,15 @@ struct ControlsBar: View {
                     ? .recording(elapsed: recordingHUD?.elapsedSeconds ?? 0)
                     : .recordIdle
                 ShutterButton(mode: shutterMode, action: onVideoShutter)
+            } else if hud.captureMode == .night {
+                ShutterButton(mode: .photo, action: onNightShutter)
+            } else if hud.captureMode == .timelapse {
+                let isRunning: Bool = {
+                    if case .running = timelapseController?.phase { return true }
+                    return false
+                }()
+                let shutterMode: ShutterButton.Mode = isRunning ? .recording(elapsed: 0) : .recordIdle
+                ShutterButton(mode: shutterMode, action: onTimelapseShutter)
             } else {
                 ShutterButton(mode: .photo, action: onShutter)
             }
