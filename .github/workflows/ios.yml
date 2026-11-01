@@ -42,6 +42,33 @@ jobs:
           path: build/CameraApp.ipa
           if-no-files-found: error
 
+  test:
+    runs-on: macos-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 26
+        run: |
+          ls -d /Applications/Xcode*.app | sort -V
+          XCODE_APP="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1 || true)"
+          if [ -z "$XCODE_APP" ]; then
+            XCODE_APP="$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+            echo "::warning::Xcode 26 not found; falling back to $XCODE_APP"
+          fi
+          echo "XCODE_APP=$XCODE_APP" >> "$GITHUB_ENV"
+      - name: Show toolchain
+        run: |
+          DEVELOPER_DIR="$XCODE_APP/Contents/Developer" xcodebuild -version
+          echo "DEVELOPER_DIR=$XCODE_APP/Contents/Developer" >> "$GITHUB_ENV"
+      - name: Generate project
+        run: brew install xcodegen && xcodegen generate
+      - name: Run unit tests
+        run: >
+          xcodebuild -project CameraApp.xcodeproj -scheme CameraApp
+          -configuration Debug -sdk iphonesimulator
+          -destination 'platform=iOS Simulator,OS=17.0,name=iPhone 11 Pro Max'
+          test
+
   python:
     runs-on: ubuntu-latest
     steps:
