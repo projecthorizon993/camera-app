@@ -61,6 +61,9 @@ final class AppEnvironment: ObservableObject {
         state: recordingHUDState
     )
 
+    /// Task 16 integration: watermark stage.
+    lazy var watermarkRenderer: WatermarkRenderer = WatermarkRenderer()
+
     init() {
         // The closure must capture `self` weakly: AppEnvironment lives for the
         // whole app run, but the lazy controllers are created on first touch.
@@ -74,5 +77,7 @@ final class AppEnvironment: ObservableObject {
                 await self?.captureController.captureCurrent()
             }
         }
+        // Task 16 integration: watermark stage.
+        pipeline.setStage(.watermark, watermarkRenderer)
     }
 }
