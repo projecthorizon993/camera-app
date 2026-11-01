@@ -129,10 +129,10 @@ enum WatermarkPlanner {
         case .focalAperture:
             var parts: [String] = []
             if let focal = exif?.focalMM {
-                parts.append(String(format: "%gmm", focal))
+                parts.append(String(format: "%gmm", Double(focal)))
             }
             if let aperture = exif?.aperture {
-                parts.append(String(format: "f/%g", aperture))
+                parts.append(String(format: "f/%g", Double(aperture)))
             }
             return parts.isEmpty ? nil : parts.joined(separator: " ")
         case .shutterISO:
