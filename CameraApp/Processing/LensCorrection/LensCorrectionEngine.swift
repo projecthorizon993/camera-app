@@ -191,11 +191,11 @@ final class LensCorrectionEngine: LensCorrectionProtocol, ProcessingStageProtoco
         // Named sub-expressions: the inline literal row below exceeded the
         // type-checker's expression-timeout budget (LD007) when written as
         // one 9-argument call with mixed Float/Double coercions.
-        let k1 = Float(profile.distortion.k1 * strength)
-        let k2 = Float(profile.distortion.k2 * strength)
-        let k3 = Float(profile.distortion.k3 * strength)
-        let ca = Float(profile.caOffsets * strength)
-        let vignetteGain = Float(profile.vignetteGain * strength)
+        let k1 = Float(Double(profile.distortion.k1) * strength)
+        let k2 = Float(Double(profile.distortion.k2) * strength)
+        let k3 = Float(Double(profile.distortion.k3) * strength)
+        let ca = Float(Double(profile.caOffsets) * strength)
+        let vignetteGain = Float(Double(profile.vignetteGain) * strength)
         let strengthF = Float(strength)
         let hasChromaFlag: UInt32 = hasChroma ? 1 : 0
         var params = FusedWarpParams(
