@@ -120,7 +120,11 @@ final class TimelapseRecorder: @unchecked Sendable {
                 }
             }
         } catch {
-            _ = await session.finish()
+            // Only finish the session if frames were appended; an empty
+            // session's finish() can hang waiting for input that never comes.
+            if done > 0 {
+                _ = await session.finish()
+            }
             if error is TimelapseError {
                 throw error
             }
