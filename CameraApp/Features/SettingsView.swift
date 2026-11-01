@@ -68,7 +68,6 @@ struct SettingsView: View {
 
                 // MARK: Diagnostics
                 Section("Diagnostics") {
-                    Toggle("Verbose Logging", isOn: loggingBinding)
                     Button("Save Diagnostic Log") {
                         Logger.save("user requested diagnostic log export")
                     }
