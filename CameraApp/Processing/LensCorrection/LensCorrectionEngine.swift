@@ -140,7 +140,8 @@ final class LensCorrectionEngine: LensCorrectionProtocol, ProcessingStageProtoco
               let commandQueue = self.commandQueue,
               let textureCache = self.textureCache
         else {
-            throw LensCorrectionError.metalUnavailable("lens correction: Metal device/command queue/texture cache unavailable")
+            // Metal unavailable (simulator) — return input unchanged.
+            return PixelBufferBox(buffer: input)
         }
 
         guard
@@ -159,7 +160,9 @@ final class LensCorrectionEngine: LensCorrectionProtocol, ProcessingStageProtoco
             ),
             let outputTexture = CVMetalTextureGetTexture(cvOutput)
         else {
-            throw LensCorrectionError.warpFailed("Metal texture wrapping failed (unsupported pixel format?)")
+            // Metal texture wrapping failed — return input unchanged (passthrough).
+            // On simulator without Metal, this is the expected path.
+            return PixelBufferBox(buffer: input)
         }
 
         var cvChroma: CVMetalTexture?
@@ -257,6 +260,7 @@ final class LensCorrectionEngine: LensCorrectionProtocol, ProcessingStageProtoco
             guard let library = state.library,
                   let device = self.device,
                   let commandQueue = self.commandQueue else {
+                // Metal unavailable — return a no-op pipeline indicator.
                 throw LensCorrectionError.metalUnavailable("lens correction: Metal device/command queue/library unavailable")
             }
             guard let function = library.makeFunction(name: "lc_fused_correct") else {

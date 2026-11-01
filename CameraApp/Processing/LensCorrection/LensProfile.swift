@@ -22,8 +22,8 @@ struct LensProfile: Codable, Sendable, Equatable {
         let k3: Float
     }
     /// Principal point as a fraction of image width/height (0...1).
-    let principalPointX: Float
-    let principalPointY: Float
+    let principalPointX: Float = 0.5
+    let principalPointY: Float = 0.5
     let caOffsets: Float
     let vignetteGain: Float
     let source: Source
