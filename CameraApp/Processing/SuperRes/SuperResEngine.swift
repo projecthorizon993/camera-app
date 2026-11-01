@@ -152,7 +152,10 @@ final class SuperResEngine: SuperResEngineProtocol, @unchecked Sendable {
                             encoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
                             encoder.endEncoding()
                             commandBuffer.commit()
-                            commandBuffer.waitUntilCompleted()
+                            // waitUntilCompleted is unavailable from async contexts
+                            // (Swift 6) — the overlay's async completed() is the
+                            // Awaitable replacement; the status check is equivalent.
+                            await commandBuffer.completed()
                             if commandBuffer.status == .completed {
                                 usedSharpened = true
                             }
