@@ -36,12 +36,16 @@ final class BracketEngineTests: XCTestCase {
         let n = BracketPlanner.normalize(w)
         let sum = n.reduce(0, +)
         XCTAssertEqual(sum, 1.0, accuracy: 1e-6)
-        XCTAssertEqual(n, [1.0/6.0, 2.0/6.0, 3.0/6.0], accuracy: 1e-6)
+        XCTAssertEqual(n.count, 3)
+        XCTAssertEqual(n[0], 1.0/6.0, accuracy: 1e-6)
+        XCTAssertEqual(n[1], 2.0/6.0, accuracy: 1e-6)
+        XCTAssertEqual(n[2], 3.0/6.0, accuracy: 1e-6)
     }
 
     func testNormalizeUniformEdgeCase() {
         let n = BracketPlanner.normalize([0, 0, 0])
-        XCTAssertEqual(n, [1.0/3.0, 1.0/3.0, 1.0/3.0], accuracy: 1e-6)
+        XCTAssertEqual(n.count, 3)
+        for v in n { XCTAssertEqual(v, 1.0/3.0, accuracy: 1e-6) }
         let empty = BracketPlanner.normalize([])
         XCTAssertTrue(empty.isEmpty)
     }

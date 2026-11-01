@@ -15,7 +15,11 @@ public enum BracketError: Error, Sendable {
 /// Metal merge engine. GPU work runs off the caller's actor via a detached task.
 public final class BracketMerger: @unchecked Sendable {
 
-    public typealias BracketError = BracketError
+    public enum BracketError: Error, Sendable {
+        case metalUnavailable
+        case insufficientFrames
+        case fuseFailed
+    }
 
     private let device: MTLDevice?
 
