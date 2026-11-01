@@ -3,6 +3,7 @@ import CoreVideo
 import Metal
 import MetalKit
 import QuartzCore
+import UIKit
 import os
 import simd
 
@@ -471,8 +472,9 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
             chroma = texture
         }
 
-        // Read orientation from the pixel buffer's attachments.
-        let orientation = Self.orientation(for: frame.pixelBuffer)
+        // Read orientation from the window scene each frame so the preview
+        // stays correct when the device is rotated.
+        let orientation = Self.orientation()
         let textureCoords = Self.textureCoords(for: orientation)
 
         return DrawnFrame(
@@ -488,13 +490,22 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
 
     // MARK: Orientation helpers
 
-    /// Reads orientation from CVPixelBuffer attachments.
-    /// kCVPixelBufferOrientationPropertyKey and CVPixelBufferGetAttachments are
-    /// C APIs that do not import into this Swift surface; orientation
-    /// correction is deferred to a follow-up. Default to normal (1).
-    private static func orientation(for buffer: CVPixelBuffer) -> Int {
-        Logger.debug("pixel buffer orientation: default (1)")
-        return 1
+    /// Reads the current device orientation from the window scene and maps it
+    /// to a CoreVideo orientation constant (1 = portrait, 6 = landscape left,
+    /// 3 = portrait upside down, 8 = landscape right). Returns 1 when the
+    /// orientation cannot be determined.
+    private static func orientation() -> Int {
+        guard let windowScene = UIApplication.shared.windows.first?.windowScene else {
+            return 1
+        }
+        switch windowScene.interfaceOrientation {
+        case .portrait: return 1
+        case .portraitUpsideDown: return 3
+        case .landscapeLeft: return 8
+        case .landscapeRight: return 6
+        case .unknown: return 1
+        @unknown default: return 1
+        }
     }
 
     /// Returns per-vertex texture coordinates (top-left, top-right,
