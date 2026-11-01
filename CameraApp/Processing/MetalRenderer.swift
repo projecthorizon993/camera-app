@@ -318,11 +318,18 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
         // Build per-vertex data with aspect-fit screen positions and
         // orientation-corrected texture coordinates.
         let drawableSize = view.drawableSize
-        let bufferSize = CGSize(
-            width: CGFloat(frame.lumaTexture.width),
-            height: CGFloat(frame.lumaTexture.height)
-        )
-        let rect = Self.aspectFitRect(bufferSize: bufferSize, in: drawableSize)
+        let bufferWidth = CGFloat(frame.lumaTexture.width)
+        let bufferHeight = CGFloat(frame.lumaTexture.height)
+        // When orientation is 6 or 8 (90° rotation), swap width/height so the
+        // quad matches the rotated image's aspect ratio.
+        let effectiveSize: CGSize
+        switch currentOrientation {
+        case 6, 8:
+            effectiveSize = CGSize(width: bufferHeight, height: bufferWidth)
+        default:
+            effectiveSize = CGSize(width: bufferWidth, height: bufferHeight)
+        }
+        let rect = Self.aspectFitRect(bufferSize: effectiveSize, in: drawableSize)
         // Convert pixel rect to Metal NDC (-1 to 1):
         // x_ndc = (2 * x / width) - 1
         // y_ndc = 1 - (2 * y / height)   (flip Y: pixel down → NDC up)
@@ -523,8 +530,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
         switch windowScene.interfaceOrientation {
         case .portrait: return 1
         case .portraitUpsideDown: return 3
-        case .landscapeLeft: return 8
-        case .landscapeRight: return 6
+        case .landscapeLeft: return 6   // device rotated 90° CCW → buffer needs 90° CW rotation
+        case .landscapeRight: return 8  // device rotated 90° CW → buffer needs 90° CCW rotation
         case .unknown: return 1
         @unknown default: return 1
         }
