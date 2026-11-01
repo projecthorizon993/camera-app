@@ -30,6 +30,12 @@ final class AppEnvironment: ObservableObject {
     /// GPU/image processing facade. // Task 6: real stage-slot pipeline.
     lazy var pipeline: ProcessingPipelineProtocol = DefaultProcessingPipeline()
 
+    /// Lens-correction stage engine (Task 13): fused Metal warp + bundled /
+    /// runtime lens profiles. Registered into the `.lensCorrection` slot —
+    /// correction sits between develop and look (the correction-before-SR hook
+    /// point Task 19 slots after).
+    lazy var lensCorrectionEngine: LensCorrectionEngine = LensCorrectionEngine()
+
     /// Capture flow (Task 8): shutter → capture → save to Photos, plus the
     /// last-shot thumbnail and shutter feedback. Reads `cameraService` at
     /// first touch — T7's swap of the placeholder for the real T4 service
@@ -61,5 +67,10 @@ final class AppEnvironment: ObservableObject {
                 await self?.captureController.captureCurrent()
             }
         }
+
+        // Task 13 integration: registry slot differs per stage — the lens
+        // correction stage owns the `.lensCorrection` slot (correction runs
+        // before the look stage / before Task 19's super-res slot).
+        pipeline.setStage(.lensCorrection, lensCorrectionEngine)
     }
 }
