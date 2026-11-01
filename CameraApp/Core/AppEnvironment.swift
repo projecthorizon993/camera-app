@@ -68,6 +68,13 @@ final class AppEnvironment: ObservableObject {
     /// Task 16 integration: watermark stage.
     lazy var watermarkRenderer: WatermarkRenderer = WatermarkRenderer()
 
+    // Task 18 integration:
+    lazy var nightController: NightCaptureController = NightCaptureController(
+        service: cameraService,
+        permissionService: permissionService
+    )
+    lazy var timelapseController: TimelapseController = TimelapseController(service: cameraService)
+
     init() {
         // The closure must capture `self` weakly: AppEnvironment lives for the
         // whole app run, but the lazy controllers are created on first touch.
