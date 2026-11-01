@@ -39,10 +39,6 @@ final class AppEnvironment: ObservableObject {
         permissionService: permissionService
     )
 
-    /// Task 15: photo-library-backed gallery. lazy var galleryModel: GalleryViewModel
-    /// = GalleryViewModel(source: LiveGallerySource()).
-    lazy var galleryModel: GalleryViewModel = GalleryViewModel(source: LiveGallerySource())
-
     /// T8 WIRING POINT — capture hook. The viewfinder's shutter button calls
     /// this closure (`ViewfinderScreen` reads `environment.onShutter` at tap
     /// time, so a late assignment by Task 8 is picked up). Assigned once here
@@ -51,6 +47,9 @@ final class AppEnvironment: ObservableObject {
     /// Capture params (flash/timer/format) flow from `captureController.settings`
     /// until the HUD chips are rebound onto them (Task 11).
     var onShutter: () -> Void = {}
+
+    /// Task 15: photo-library-backed gallery.
+    lazy var galleryModel: GalleryViewModel = GalleryViewModel(source: LiveGallerySource())
 
     /// T14: video recording recorder (lazy).
     lazy var videoRecorder: VideoRecorder = VideoRecorder()
@@ -68,6 +67,9 @@ final class AppEnvironment: ObservableObject {
     /// Task 16 integration: watermark stage.
     lazy var watermarkRenderer: WatermarkRenderer = WatermarkRenderer()
 
+    /// Task 17 integration: look stage.
+    lazy var lookEngine: LookEngine = LookEngine()
+
     init() {
         // The closure must capture `self` weakly: AppEnvironment lives for the
         // whole app run, but the lazy controllers are created on first touch.
@@ -83,5 +85,7 @@ final class AppEnvironment: ObservableObject {
         }
         // Task 16 integration: watermark stage.
         pipeline.setStage(.watermark, watermarkRenderer)
+        // Task 17 integration: look stage.
+        pipeline.setStage(.look, LookStageAdapter(engine: lookEngine))
     }
 }
