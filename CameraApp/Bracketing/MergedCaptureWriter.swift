@@ -8,13 +8,13 @@ import ImageIO
 
 /// Converts bracket frames (`CapturedPhoto`) into one merged `CapturedPhoto`,
 /// carrying the T4-review M1 EXIF timestamp onto the merged output.
-public final class MergedCaptureWriter: @unchecked Sendable {
+final class MergedCaptureWriter: @unchecked Sendable {
 
     private let merger = BracketMerger()
 
-    public init() {}
+    init() {}
 
-    public func mergedPhoto(frames: [CapturedPhoto], mode: MergeMode) async throws -> CapturedPhoto {
+    func mergedPhoto(frames: [CapturedPhoto], mode: MergeMode) async throws -> CapturedPhoto {
         guard !frames.isEmpty else { throw BracketError.insufficientFrames }
         let buffers = try frames.map { try Self.pixelBuffer(from: $0) }
         let merged = try await merger.merge(frames: buffers, mode: mode, orientation: .portrait)

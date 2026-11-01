@@ -16,16 +16,16 @@ import Foundation
 // MARK: - MergeMode
 
 /// How a bracket's frames are combined into one photo.
-public enum MergeMode: Sendable { case fusion, nightStack }
+enum MergeMode: Sendable { case fusion, nightStack }
 
 // MARK: - BracketPlan
 
 /// Pure planning value for one bracket run.
-public struct BracketPlan: Sendable, Equatable {
-    public let frameCount: Int   // 1...9
-    public let mode: MergeMode
+struct BracketPlan: Sendable, Equatable {
+    let frameCount: Int   // 1...9
+    let mode: MergeMode
 
-    public init(frameCount: Int, mode: MergeMode) {
+    init(frameCount: Int, mode: MergeMode) {
         self.frameCount = min(max(frameCount, 1), 9)
         self.mode = mode
     }
@@ -34,11 +34,11 @@ public struct BracketPlan: Sendable, Equatable {
 // MARK: - BracketPlanner
 
 /// Pure planning math for a bracket run. No hardware, no Metal.
-public enum BracketPlanner {
+enum BracketPlanner {
 
     /// EV span (in EV) per bracket depth, mirroring the service's span table
     /// (hardware AEB-3 = 4 EV; software = 6/7/8 EV for 5/7/9).
-    public static func span(for depth: BracketDepth) -> Double {
+    static func span(for depth: BracketDepth) -> Double {
         switch depth {
         case .aeb3:  return 4.0
         case .soft5: return 6.0
@@ -49,7 +49,7 @@ public enum BracketPlanner {
 
     /// EV ladder for a bracket depth (−half…+half, evenly stepped).
     /// Used only for planning/validation + tests; the service owns actual exposure.
-    public static func evLadder(depth: BracketDepth) -> [Double] {
+    static func evLadder(depth: BracketDepth) -> [Double] {
         let count = depth.frameCount
         guard count > 1 else { return [0.0] }
         let span = Self.span(for: depth)
@@ -63,7 +63,7 @@ public enum BracketPlanner {
     /// `contrast` and `saturation` are per-pixel estimates. Returns the
     /// (unnormalized) weight. Mid-gray luminance outperforms extremes because
     /// the exposure term peaks at 0.5.
-    public static func mertensWeight(lightness: Float, contrast: Float, saturation: Float) -> Float {
+    static func mertensWeight(lightness: Float, contrast: Float, saturation: Float) -> Float {
         let sigma: Float = 0.2
         let exposure = expf(-((lightness - 0.5) * (lightness - 0.5)) / (2.0 * sigma * sigma))
         return max(contrast, 0) * max(saturation, 0) * exposure
@@ -71,7 +71,7 @@ public enum BracketPlanner {
 
     /// Fusion weight normalization: divide each weight by the per-position sum.
     /// All-frames-identical edge case (sum == 0) → uniform weights.
-    public static func normalize(_ weights: [Float]) -> [Float] {
+    static func normalize(_ weights: [Float]) -> [Float] {
         guard !weights.isEmpty else { return [] }
         let sum = weights.reduce(0, +)
         if sum <= 0 {

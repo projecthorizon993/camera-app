@@ -4,7 +4,7 @@ import Metal
 
 // MARK: - BracketError
 
-public enum BracketError: Error, Sendable {
+enum BracketError: Error, Sendable {
     case metalUnavailable
     case insufficientFrames
     case fuseFailed
@@ -13,9 +13,9 @@ public enum BracketError: Error, Sendable {
 // MARK: - BracketMerger
 
 /// Metal merge engine. GPU work runs off the caller's actor via a detached task.
-public final class BracketMerger: @unchecked Sendable {
+final class BracketMerger: @unchecked Sendable {
 
-    public enum BracketError: Error, Sendable {
+    enum BracketError: Error, Sendable {
         case metalUnavailable
         case insufficientFrames
         case fuseFailed
@@ -23,11 +23,11 @@ public final class BracketMerger: @unchecked Sendable {
 
     private let device: MTLDevice?
 
-    public init() {
+    init() {
         self.device = MTLCreateSystemDefaultDevice()
     }
 
-    public func merge(frames: [CVPixelBuffer], mode: MergeMode,
+    func merge(frames: [CVPixelBuffer], mode: MergeMode,
                       orientation: PortraitLandscape) async throws -> CVPixelBuffer {
         guard device != nil else { throw BracketError.metalUnavailable }
         // SE-0461: hop off the caller's actor explicitly. Wrap non-Sendable
