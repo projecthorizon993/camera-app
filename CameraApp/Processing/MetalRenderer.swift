@@ -489,15 +489,12 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
     // MARK: Orientation helpers
 
     /// Reads orientation from CVPixelBuffer attachments.
-    /// kCVPixelBufferOrientationPropertyKey is a C #define that doesn't import
-    /// into Swift — use the string key "Orientation" (its documented value).
-    /// CVPixelBufferGetAttachments takes a raw UInt32 mode (0 = propagate).
+    /// kCVPixelBufferOrientationPropertyKey and CVPixelBufferGetAttachments are
+    /// C APIs that do not import into this Swift surface; orientation
+    /// correction is deferred to a follow-up. Default to normal (1).
     private static func orientation(for buffer: CVPixelBuffer) -> Int {
-        let key = "Orientation"
-        let attachments = CVPixelBufferGetAttachments(buffer, 0) as? [String: Any]
-        let orientation = attachments?[key] as? Int ?? 1
-        Logger.debug("pixel buffer orientation: \(orientation)")
-        return orientation
+        Logger.debug("pixel buffer orientation: default (1)")
+        return 1
     }
 
     /// Returns per-vertex texture coordinates (top-left, top-right,
