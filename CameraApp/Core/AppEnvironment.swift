@@ -76,6 +76,10 @@ final class AppEnvironment: ObservableObject {
     )
     lazy var timelapseController: TimelapseController = TimelapseController(service: cameraService)
 
+    // Task 19 integration: super-res engine (exposed for T20 wiring; NOT a
+    // pipeline stage — the frozen stage order has no super-res slot, so T20
+    // calls it explicitly between stages). Clean-room v1: Lanczos + unsharp.
+    lazy var superResEngine: SuperResEngine = SuperResEngine()
     init() {
         // The closure must capture `self` weakly: AppEnvironment lives for the
         // whole app run, but the lazy controllers are created on first touch.
