@@ -107,7 +107,8 @@ final class TimelapseRecorder: @unchecked Sendable {
                 let photo = try await capture()
                 let buffer: CVPixelBuffer
                 do {
-                    buffer = try Self.pixelBuffer(from: photo)
+                    // Task 20: reuse the shared decode bridge (dedup ruling).
+                    buffer = try PixelBufferDecoding.pixelBuffer(from: photo.data)
                 } catch {
                     throw TimelapseError.assemblyFailed
                 }
@@ -130,39 +131,4 @@ final class TimelapseRecorder: @unchecked Sendable {
         return url
     }
 
-    // MARK: - CGImage -> CVPixelBuffer bridge (local copy)
-
-    private static func pixelBuffer(from photo: CapturedPhoto) throws -> CVPixelBuffer {
-        guard let source = CGImageSourceCreateWithData(photo.data as CFData, nil),
-              let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
-            throw TimelapseError.assemblyFailed
-        }
-        let width = photo.width > 0 ? photo.width : cgImage.width
-        let height = photo.height > 0 ? photo.height : cgImage.height
-
-        var buffer: CVPixelBuffer?
-        let attrs: [String: Any] = [
-            kCVPixelBufferMetalCompatibilityKey as String: true,
-            kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
-        ]
-        let status = CVPixelBufferCreate(
-            kCFAllocatorDefault, width, height, kCVPixelFormatType_32BGRA,
-            attrs as CFDictionary, &buffer
-        )
-        guard status == kCVReturnSuccess, let buffer else { throw TimelapseError.assemblyFailed }
-
-        CVPixelBufferLockBaseAddress(buffer, [])
-        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        guard let ctx = CGContext(
-            data: CVPixelBufferGetBaseAddress(buffer),
-            width: width, height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
-            space: colorSpace,
-            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-        ) else { throw TimelapseError.assemblyFailed }
-        ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
-        return buffer
-    }
 }
