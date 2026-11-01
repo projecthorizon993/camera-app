@@ -42,6 +42,45 @@ jobs:
           path: build/CameraApp.ipa
           if-no-files-found: error
 
+  test:
+    runs-on: macos-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 26
+        run: |
+          ls -d /Applications/Xcode*.app | sort -V
+          XCODE_APP="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1 || true)"
+          if [ -z "$XCODE_APP" ]; then
+            XCODE_APP="$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+            echo "::warning::Xcode 26 not found; falling back to $XCODE_APP"
+          fi
+          echo "XCODE_APP=$XCODE_APP" >> "$GITHUB_ENV"
+      - name: Show toolchain
+        run: |
+          DEVELOPER_DIR="$XCODE_APP/Contents/Developer" xcodebuild -version
+          echo "DEVELOPER_DIR=$XCODE_APP/Contents/Developer" >> "$GITHUB_ENV"
+      - name: Generate project
+        run: brew install xcodegen && xcodegen generate
+      - name: Discover simulator destination
+        run: |
+          DEST_ID="$(DEVELOPER_DIR="$XCODE_APP/Contents/Developer" xcrun simctl list devices available 2>&1 | \
+            grep -m1 -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' | head -1)"
+          if [ -z "$DEST_ID" ]; then
+            echo "::error::No available iOS Simulator device found (real UUID required to run tests)"
+            echo "::group::simctl output"
+            DEVELOPER_DIR="$XCODE_APP/Contents/Developer" xcrun simctl list devices available 2>&1 || true
+            echo "::endgroup::"
+            exit 1
+          fi
+          echo "SIM_DEST=platform=iOS Simulator,id=$DEST_ID" >> "$GITHUB_ENV"
+      - name: Run unit tests
+        run: >
+          xcodebuild -project CameraApp.xcodeproj -scheme CameraApp
+          -configuration Debug -sdk iphonesimulator
+          -destination "$SIM_DEST"
+          test
+
   python:
     runs-on: ubuntu-latest
     steps:

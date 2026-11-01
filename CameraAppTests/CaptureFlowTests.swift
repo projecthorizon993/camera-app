@@ -56,9 +56,7 @@ private final class CaptureFlowMockCameraService: CameraServiceProtocol {
     }
 
     func capturePhoto(_ settings: PhotoCaptureSettings) async throws -> CapturedPhoto {
-        lock.lock()
-        captured.append(settings)
-        lock.unlock()
+        lock.withLock { captured.append(settings) }
         if let duringCapture { await duringCapture() }
         if let errorToThrow { throw errorToThrow }
         return CapturedPhoto(data: Data([0x01, 0x02, 0x03]), format: settings.format, width: 12, height: 12, exifSummary: nil)
@@ -417,7 +415,7 @@ final class CaptureFlowTests: XCTestCase {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        let store = ShutterSoundStore(defaults: defaults)
+        var store = ShutterSoundStore(defaults: defaults)
         XCTAssertTrue(store.isSoundEnabled, "an unset key must default to enabled")
 
         store.isSoundEnabled = false
@@ -433,7 +431,7 @@ final class CaptureFlowTests: XCTestCase {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        let store = ShutterSoundStore(defaults: defaults)
+        var store = ShutterSoundStore(defaults: defaults)
         let feedback = ShutterFeedback(store: store)
         XCTAssertTrue(feedback.isShutterSoundEnabled, "initial value must come from the store")
 

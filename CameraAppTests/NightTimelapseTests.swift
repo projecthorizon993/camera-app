@@ -27,9 +27,7 @@ private final class NightTimelapseMockCameraService: CameraServiceProtocol {
     }
 
     func capturePhoto(_ settings: PhotoCaptureSettings) async throws -> CapturedPhoto {
-        lock.lock()
-        captured.append(settings)
-        lock.unlock()
+        lock.withLock { captured.append(settings) }
         if let errorToThrow { throw errorToThrow }
         return CapturedPhoto(data: Data([0xFF, 0xD8, 0xFF]), format: settings.format,
                              width: 8, height: 8, exifSummary: nil)
