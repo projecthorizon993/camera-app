@@ -518,14 +518,14 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
         let br = SIMD2<Float>(1, 1)
 
         switch orientation {
-        case 1:   return [tl, tr, bl, br]                    // normal
+        case 1:   return [tl, tr, bl, br]                    // normal (portrait)
         case 2:   return [tr, tl, br, bl]                    // flip horizontal
         case 3:   return [br, bl, tr, tl]                    // rotate 180
         case 4:   return [bl, br, tl, tr]                    // flip vertical
         case 5:   return [bl, tl, br, tr]                    // transpose
-        case 6:   return [bl, tl, br, tr]                    // rotate 90 CW
+        case 6:   return [tr, br, tl, bl]                    // rotate 90 CW (landscape right)
         case 7:   return [tl, tr, bl, br]                    // rare edge case: treat as normal
-        case 8:   return [tr, br, tl, bl]                    // rotate 270 CW
+        case 8:   return [bl, br, tl, tr]                    // rotate 270 CW (landscape left)
         default:  return [tl, tr, bl, br]
         }
     }
