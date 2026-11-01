@@ -1,0 +1,11 @@
+{
+  "lensID": "wide",
+  "distortion": {
+    "k1": 0.0,
+    "k2": 0.0,
+    "k3": 0.0
+  },
+  "caOffsets": 0.0,
+  "vignetteGain": 1.0,
+  "source": "neutral"
+}
