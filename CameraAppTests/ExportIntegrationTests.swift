@@ -18,10 +18,10 @@ final class ExportIntegrationTests: XCTestCase {
 
         func setStage(_ stage: PipelineStage, _ processor: ProcessingStageProtocol?) {}
         func run(_ input: CVPixelBuffer, stages: [PipelineStage], context: ProcessingContext) async throws -> CVPixelBuffer {
-            lock.lock()
-            _stages.append(contentsOf: stages)
-            _contexts.append(context)
-            lock.unlock()
+            lock.withLock {
+                _stages.append(contentsOf: stages)
+                _contexts.append(context)
+            }
             if shouldThrow {
                 throw NSError(domain: "ExportIntegrationTests", code: 1, userInfo: nil)
             }
@@ -137,8 +137,8 @@ final class ExportIntegrationTests: XCTestCase {
         _ = await processor.process(photo, plan: ExportPlan(format: .jpeg))
 
         XCTAssertEqual(pipeline.recordedContexts.count, 1)
-        let ctx = pipeline.recordedContexts.first
-        XCTAssertEqual(ctx?.strength, 1.0, accuracy: 1e-9)
+        let ctx = try XCTUnwrap(pipeline.recordedContexts.first)
+        XCTAssertEqual(ctx.strength, 1.0, accuracy: 1e-9)
         XCTAssertEqual(ctx?.exif?.deviceModel, exif.deviceModel)
         XCTAssertEqual(ctx?.exif?.lensID, exif.lensID)
     }
