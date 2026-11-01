@@ -100,6 +100,15 @@ enum CapturePreset: String, CaseIterable, Sendable {
         case .video: return .none
         }
     }
+
+    static func from(format: CaptureFormat, proMode: Bool) -> CapturePreset {
+        for preset in CapturePreset.allCases {
+            if preset.format == format && preset.proMode == proMode {
+                return preset
+            }
+        }
+        return .auto
+    }
 }
 
 // MARK: - UserDefaults persistence keys
