@@ -43,6 +43,8 @@ final class AppEnvironment: ObservableObject {
     /// = GalleryViewModel(source: LiveGallerySource()).
     lazy var galleryModel: GalleryViewModel = GalleryViewModel(source: LiveGallerySource())
 
+    /// Task 17 integration: look stage.
+    lazy var lookEngine: LookEngine = LookEngine()
     /// T8 WIRING POINT — capture hook. The viewfinder's shutter button calls
     /// this closure (`ViewfinderScreen` reads `environment.onShutter` at tap
     /// time, so a late assignment by Task 8 is picked up). Assigned once here
@@ -78,5 +80,8 @@ final class AppEnvironment: ObservableObject {
                 await self?.captureController.captureCurrent()
             }
         }
+
+        // Task 17 integration: look stage.
+        pipeline.setStage(.look, LookStageAdapter(engine: lookEngine))
     }
 }
