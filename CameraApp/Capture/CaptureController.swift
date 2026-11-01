@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import Observation
 
 // Task 8 — the app-layer capture flow: shutter action → photo capture → save
 // to Photos, plus the last-shot thumbnail and capture feedback state.
@@ -12,7 +13,7 @@ import Combine
 // `PhotoCaptureSettings`, e.g. if T7's own HUD state object owns the chip
 // values). Everything else is binding, not wiring:
 //
-//   - HUD chips        → `controller.settings` (@Published flashMode /
+//   - HUD chips        → `controller.settings` (@Observable flashMode /
 //                        timerSeconds / format).
 //   - Opacity flash    → observe `controller.feedback.shutterFlashID`; it
 //                        bumps once per fired shot (right after the frame
@@ -54,23 +55,35 @@ enum CaptureOutcome: Sendable {
 
 // MARK: - CaptureSettingsModel
 
-/// Flash/timer/format state for the capture HUD. T7's chips bind to these
-/// `@Published` properties; the controller turns them into
-/// `PhotoCaptureSettings` via `makeSettings(orientation:)`.
+/// Flash/timer/format state for the capture HUD. T7's chips write through
+/// `CaptureHUDState`'s pass-through accessors; the controller turns these
+/// values into `PhotoCaptureSettings` via `makeSettings(orientation:)`.
+///
+/// Task 11: `@Observable` (was `ObservableObject` + `@Published`). The HUD's
+/// pass-throughs are computed properties whose reads happen during SwiftUI
+/// `body` evaluation; Observation only re-renders a view when the read passes
+/// through an observation-tracked accessor, which a foreign Combine
+/// `@Published` does NOT provide — with `@Published`, chip taps would mutate
+/// the capture pipeline while the chips kept rendering their previous
+/// values. `@Observable` makes those reads register (and mutations invalidate
+/// the chip row). Isolation is unchanged: @MainActor, mutated only on main.
 @MainActor
-final class CaptureSettingsModel: ObservableObject {
+@Observable
+final class CaptureSettingsModel {
 
-    @Published var flashMode: FlashMode = .off
+    var flashMode: FlashMode = .off
 
     /// 0 = off; any positive value arms the in-service countdown
     /// (`CameraService.capturePhoto` implements the delay itself).
-    @Published var timerSeconds: Int = 0
+    var timerSeconds: Int = 0
 
-    @Published var format: CaptureFormat = .jpeg
+    var format: CaptureFormat = .jpeg
 
     /// Sets the capture format, enforcing the platform exclusivity rule
     /// (plan §7): RAW is mutually exclusive with flash. Selecting `.dng`
-    /// resets flash to `.off`; other formats leave flash untouched.
+    /// resets flash to `.off`; other formats leave flash untouched. Task 12's
+    /// bracketing inherits the same rule through `PackageCaptureSettings`,
+    /// which reads these values — there is no second enforcement site.
     func selectFormat(_ format: CaptureFormat) {
         self.format = format
         if format == .dng { flashMode = .off }

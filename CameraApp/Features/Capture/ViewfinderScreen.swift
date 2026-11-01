@@ -163,8 +163,10 @@ struct ViewfinderScreen: View {
 
     // MARK: - Chrome
 
-    /// Top HUD row: flash / timer / grid / manual chips. State only — capture
-    /// wiring is Task 8.
+    /// Top HUD row: flash / format / timer / grid / manual chips. Flash,
+    /// format, and timer are bound to the capture pipeline's single source of
+    /// truth (Task 11 — `CaptureSettingsModel` via the HUD pass-throughs);
+    /// grid / manual stay UI-local.
     private var hudRow: some View {
         HStack(spacing: Theme.Spacing.m) {
             HUDChip(icon: hud.flashIcon, state: hud.flashMode == .off ? .off : .on) {
@@ -172,6 +174,12 @@ struct ViewfinderScreen: View {
             }
             .disabled(hud.format == .dng)
             .opacity(hud.format == .dng ? Theme.Opacity.dimmed : 1)
+            // Task 11: format chip — cycles JPEG → HEIF → DNG (wraps) through
+            // `hud.selectFormat`, which enforces the RAW/flash exclusivity
+            // rule (plan §7): while `.dng` is armed, the flash chip above is
+            // dimmed/disabled and `cycleFlash()` is a no-op. Task 12's
+            // bracketing inherits the same exclusivity rule via
+            // `PackageCaptureSettings` reading these same settings.
             HUDChip(
                 icon: "photo",
                 label: hud.format == .jpeg ? "JPEG" : (hud.format == .heif ? "HEIF" : "DNG"),
