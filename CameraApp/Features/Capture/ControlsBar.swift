@@ -32,6 +32,8 @@ struct ControlsBar: View {
     /// ("coming soon" handling lives with the consumer, per the kit doc).
     private static let soonModes: Set<CaptureMode> = []
 
+    let environment: AppEnvironment
+
     var body: some View {
         VStack(spacing: Theme.Spacing.m) {
             if let message = hud.controlErrorText {
@@ -114,6 +116,12 @@ struct ControlsBar: View {
             SettingsPill(icon: "photo.on.rectangle", title: "Gallery") {
                 router.push(.gallery)
             }
+            if environment.captureController.settings.proMode {
+                LookChip(look: environment.captureController.settings.selectedLook) { newLook in
+                    environment.captureController.settings.selectedLook = newLook
+                    try? environment.lookEngine.loadLook(newLook)
+                }
+            }
             Spacer(minLength: 0)
             if hud.captureMode == .video {
                 let shutterMode: ShutterButton.Mode = (recordingHUD?.isRecording == true)
@@ -139,6 +147,60 @@ struct ControlsBar: View {
             SettingsPill(icon: "gearshape", title: "Settings") {
                 router.push(.settings)
             }
+        }
+    }
+}
+
+// MARK: - LookChip
+
+/// Small pill showing the current color look; tapping cycles to the next look.
+private struct LookChip: View {
+    let look: LookID
+    let onChange: (LookID) -> Void
+
+    @State private var isPressed = false
+
+    var body: some View {
+        Button {
+            let all = LookID.allCases
+            if let idx = all.firstIndex(of: look) {
+                let next = all[(idx + 1) % all.count]
+                onChange(next)
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "circle.fill")
+                    .font(.system(size: 6))
+                    .foregroundStyle(lookColor)
+                Text(look.displayName)
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(Color.black.opacity(0.6))
+                    .overlay(Capsule().stroke(Color.white.opacity(0.3), lineWidth: 1))
+            )
+            .scaleEffect(isPressed ? 0.95 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: isPressed)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
+    }
+
+    private var lookColor: Color {
+        switch look {
+        case .none: return Color.gray
+        case .authentic: return Color.orange
+        case .vibrant: return Color.purple
+        case .natural: return Color.green
+        case .classicBW: return Color.white
         }
     }
 }

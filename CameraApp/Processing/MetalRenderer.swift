@@ -3,6 +3,7 @@ import CoreVideo
 import Metal
 import MetalKit
 import QuartzCore
+import UIKit
 import os
 import simd
 
@@ -136,6 +137,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
     private var lastDrawnSequence: UInt64 = 0
     private var lastFrameTimestamp: Double = 0
     private var overlayVertexBuffer: MTLBuffer?
+    /// Current device orientation, refreshed each frame so rotation is instant.
+    private var currentOrientation: Int = 1
 
     // MARK: Layout constants (must mirror Shaders.metal)
 
@@ -266,6 +269,9 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
     func draw(in view: MTKView) {
         updateFrameTiming()
 
+        // Refresh orientation each frame so rotation is instant.
+        currentOrientation = Self.orientation()
+
         guard let drawable = view.currentDrawable,
               let renderPassDescriptor = view.currentRenderPassDescriptor,
               let commandBuffer = commandQueue.makeCommandBuffer()
@@ -309,11 +315,26 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
 
         encoder.setRenderPipelineState(frame.isBiplanar ? yuvPipelineState : bgraPipelineState)
 
-        // Build per-vertex data with orientation-corrected texture coordinates.
-        // Screen positions are fixed corners; texCoords rotate for landscape.
+        // Build per-vertex data with aspect-fit screen positions and
+        // orientation-corrected texture coordinates.
+        let drawableSize = CGSize(
+            width: Float(view.drawableSize.width),
+            height: Float(view.drawableSize.height)
+        )
+        let bufferSize = CGSize(
+            width: CGFloat(frame.lumaTexture.width),
+            height: CGFloat(frame.lumaTexture.height)
+        )
+        let rect = Self.aspectFitRect(bufferSize: bufferSize, in: drawableSize)
+        let positions: [SIMD2<Float>] = [
+            SIMD2<Float>(Float(rect.origin.x), Float(rect.origin.y)),
+            SIMD2<Float>(Float(rect.origin.x + rect.width), Float(rect.origin.y)),
+            SIMD2<Float>(Float(rect.origin.x), Float(rect.origin.y + rect.height)),
+            SIMD2<Float>(Float(rect.origin.x + rect.width), Float(rect.origin.y + rect.height))
+        ]
         var vertices: [TexturedQuadVertex] = []
         for i in 0..<4 {
-            let pos = Self.quadPositions[i]
+            let pos = positions[i]
             let tc = frame.textureCoords[i]
             vertices.append(TexturedQuadVertex(position: pos, texCoord: tc))
         }
@@ -471,8 +492,8 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
             chroma = texture
         }
 
-        // Read orientation from the pixel buffer's attachments.
-        let orientation = Self.orientation(for: frame.pixelBuffer)
+        // Read orientation from the window scene each frame.
+        let orientation = Self.orientation()
         let textureCoords = Self.textureCoords(for: orientation)
 
         return DrawnFrame(
@@ -488,13 +509,21 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
 
     // MARK: Orientation helpers
 
-    /// Reads orientation from CVPixelBuffer attachments.
-    /// kCVPixelBufferOrientationPropertyKey and CVPixelBufferGetAttachments are
-    /// C APIs that do not import into this Swift surface; orientation
-    /// correction is deferred to a follow-up. Default to normal (1).
-    private static func orientation(for buffer: CVPixelBuffer) -> Int {
-        Logger.debug("pixel buffer orientation: default (1)")
-        return 1
+    /// Reads the current device orientation from the window scene.
+    /// Returns a CoreVideo orientation constant:
+    ///   1 = portrait, 3 = portrait upside down, 6 = landscape right, 8 = landscape left.
+    private static func orientation() -> Int {
+        guard let windowScene = UIApplication.shared.windows.first?.windowScene else {
+            return 1
+        }
+        switch windowScene.interfaceOrientation {
+        case .portrait: return 1
+        case .portraitUpsideDown: return 3
+        case .landscapeLeft: return 8
+        case .landscapeRight: return 6
+        case .unknown: return 1
+        @unknown default: return 1
+        }
     }
 
     /// Returns per-vertex texture coordinates (top-left, top-right,
@@ -512,10 +541,35 @@ final class MetalRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
         case 3:   return [br, bl, tr, tl]                    // rotate 180
         case 4:   return [bl, br, tl, tr]                    // flip vertical
         case 5:   return [bl, tl, br, tr]                    // transpose
-        case 6:   return [bl, tl, br, tr]                    // rotate 90 CW
+        case 6:   return [tr, br, tl, bl]                    // rotate 90 CW (landscape right)
         case 7:   return [tl, tr, bl, br]                    // rare edge case: treat as normal
-        case 8:   return [tr, br, tl, bl]                    // rotate 270 CW
+        case 8:   return [bl, tl, br, tr]                    // rotate 270 CW (landscape left)
         default:  return [tl, tr, bl, br]
         }
+    }
+
+    /// Computes the largest centered rectangle that preserves the buffer's
+    /// aspect ratio inside the drawable size (letterboxing/pillarboxing).
+    /// Returns a rect in drawable pixel coordinates.
+    private static func aspectFitRect(bufferSize: CGSize, in drawableSize: CGSize) -> CGRect {
+        guard bufferSize.width > 0, bufferSize.height > 0,
+              drawableSize.width > 0, drawableSize.height > 0 else {
+            return CGRect(x: 0, y: 0, width: drawableSize.width, height: drawableSize.height)
+        }
+        let bufferAspect = bufferSize.width / bufferSize.height
+        let drawableAspect = drawableSize.width / drawableSize.height
+        var rectWidth: CGFloat, rectHeight: CGFloat
+        if bufferAspect > drawableAspect {
+            // Buffer is wider → fit to width, pillarbox vertically
+            rectWidth = drawableSize.width
+            rectHeight = drawableSize.width / bufferAspect
+        } else {
+            // Buffer is taller → fit to height, letterbox horizontally
+            rectHeight = drawableSize.height
+            rectWidth = drawableSize.height * bufferAspect
+        }
+        let x = (drawableSize.width - rectWidth) / 2
+        let y = (drawableSize.height - rectHeight) / 2
+        return CGRect(x: x, y: y, width: rectWidth, height: rectHeight)
     }
 }
