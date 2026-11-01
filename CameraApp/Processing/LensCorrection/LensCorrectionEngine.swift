@@ -33,7 +33,11 @@ final class LensCorrectionEngine: LensCorrectionProtocol, ProcessingStageProtoco
     /// When false, apply() passes input through unchanged (no GPU work).
     /// Defaults to false so the "sloppy" hardcoded principal point doesn't
     /// distort captures until the user explicitly enables it.
-    static var isEnabled = false
+    private static let isEnabledLock = OSAllocatedUnfairLock(initialState: false)
+    static var isEnabled: Bool {
+        get { isEnabledLock.withLock { $0 } }
+        set { isEnabledLock.withLock { $0 = newValue } }
+    }
 
     // MARK: State
 
