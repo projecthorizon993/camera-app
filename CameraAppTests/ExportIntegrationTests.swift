@@ -137,9 +137,11 @@ final class ExportIntegrationTests: XCTestCase {
         _ = await processor.process(photo, plan: ExportPlan(format: .jpeg))
 
         XCTAssertEqual(pipeline.recordedContexts.count, 1)
-        let ctx = try XCTUnwrap(pipeline.recordedContexts.first)
+        guard let ctx = pipeline.recordedContexts.first else {
+            XCTFail("no context recorded"); return
+        }
         XCTAssertEqual(ctx.strength, 1.0, accuracy: 1e-9)
-        XCTAssertEqual(ctx?.exif?.deviceModel, exif.deviceModel)
-        XCTAssertEqual(ctx?.exif?.lensID, exif.lensID)
+        XCTAssertEqual(ctx.exif?.deviceModel, exif.deviceModel)
+        XCTAssertEqual(ctx.exif?.lensID, exif.lensID)
     }
 }
