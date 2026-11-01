@@ -134,19 +134,25 @@ final class CaptureController: ObservableObject {
 
     private let cameraService: any CameraServiceProtocol
     private let saver: PhotoSaver
+    private let exportProcessor: ExportProcessor?
 
     /// - Parameters:
     ///   - cameraService: the live service (real T4 type or placeholder).
     ///   - permissionService: injected (Task 3's module), never created here.
     ///   - saver: injectable for tests; defaults to the system photo-library
     ///     saver over the given permission service.
+    ///   - exportProcessor: optional save-path processor (Task 20). Defaults to
+    ///     nil so existing tests keep compiling; AppEnvironment passes the real
+    ///     one.
     init(
         cameraService: any CameraServiceProtocol,
         permissionService: any CameraPermissionServiceProtocol,
-        saver: PhotoSaver? = nil
+        saver: PhotoSaver? = nil,
+        exportProcessor: ExportProcessor? = nil
     ) {
         self.cameraService = cameraService
         self.saver = saver ?? PhotoSaver(permissionService: permissionService)
+        self.exportProcessor = exportProcessor
     }
 
     // MARK: Shutter pipeline
@@ -198,8 +204,12 @@ final class CaptureController: ObservableObject {
     /// main-thread I/O.
     private func save(_ photo: CapturedPhoto) async -> PhotoSaveOutcome {
         let saver = self.saver
+        let exportProcessor = self.exportProcessor
         return await Task.detached(priority: .userInitiated) {
-            await saver.save(photo)
+            // Task 20: process (lens correction → look → watermark) before save.
+            // .dng and failures pass the original shot through unchanged.
+            let toSave = (await exportProcessor?.process(photo, plan: ExportPlan(format: photo.format)))?.photo ?? photo
+            return await saver.save(toSave)
         }.value
     }
 

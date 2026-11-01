@@ -40,9 +40,13 @@ final class AppEnvironment: ObservableObject {
     /// last-shot thumbnail and shutter feedback. Reads `cameraService` at
     /// first touch — T7's swap of the placeholder for the real T4 service
     /// flows into this controller automatically.
+    // Task 20 integration:
+    lazy var exportProcessor: ExportProcessor = ExportProcessor(pipeline: pipeline)
+
     lazy var captureController: CaptureController = CaptureController(
         cameraService: cameraService,
-        permissionService: permissionService
+        permissionService: permissionService,
+        exportProcessor: exportProcessor
     )
 
     /// T8 WIRING POINT — capture hook. The viewfinder's shutter button calls
