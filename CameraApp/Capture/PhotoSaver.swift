@@ -89,12 +89,14 @@ struct PhotoSaver: @unchecked Sendable {
 }
 
 /// Tiny helper mapping a capture format to its uniform type identifier.
+/// (.dng: `UTType.dng` is iOS 18.0+ — the raw UTI string `com.adobe.raw-image`
+/// is the stable pre-18 constant, per UTCoreTypes.)
 fileprivate extension UTType {
     static func identifier(for format: CaptureFormat) -> String {
         switch format {
         case .jpeg: return UTType.jpeg.identifier
         case .heif: return UTType.heif.identifier
-        case .dng:  return UTType.dng.identifier
+        case .dng:  return "com.adobe.raw-image"
         }
     }
 }
