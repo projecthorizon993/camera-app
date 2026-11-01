@@ -114,7 +114,10 @@ final class LookEngine: LookEngineProtocol, @unchecked Sendable {
 
             // blendWithMask: graded over original, mask = gray of strength.
             // Result = graded * strength + original * (1 - strength) — an exact mix.
-            let maskImage = CIImage(color: CIColor(gray: CGFloat(clampedStrength)))
+            // (CIColor(gray:) is macOS-only — the equal-channel triple below is
+            // the identical gray on every channel, which is all a mask needs.)
+            let gray = CGFloat(clampedStrength)
+            let maskImage = CIImage(color: CIColor(red: gray, green: gray, blue: gray))
                 .cropped(to: ciInput.extent)
             guard let blender = CIFilter.blendWithMask() else {
                 throw LookError.renderFailed("blendWithMask unavailable")
