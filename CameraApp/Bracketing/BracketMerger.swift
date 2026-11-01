@@ -30,14 +30,17 @@ final class BracketMerger: @unchecked Sendable {
     func merge(frames: [CVPixelBuffer], mode: MergeMode,
                       orientation: PortraitLandscape) async throws -> CVPixelBuffer {
         guard device != nil else { throw BracketError.metalUnavailable }
-        // SE-0461: hop off the caller's actor explicitly. Wrap non-Sendable
-        // buffers in PixelBufferBox so they can cross the @Sendable boundary.
+        // SE-0461: hop off the caller's actor explicitly. Box the buffers in
+        // BOTH directions — PixelBufferBox (@unchecked Sendable) carries them
+        // over the @Sendable task boundary; the bare CVPixelBuffer type has no
+        // Sendable conformance and cannot travel as a Task result.
         let boxes = frames.map { PixelBufferBox(buffer: $0) }
         let capturedMode = mode
-        return try await Task.detached(priority: .userInitiated) {
+        let resultBox = try await Task.detached(priority: .userInitiated) {
             let capturedFrames = boxes.map { $0.buffer }
-            return try Self.mergeSync(frames: capturedFrames, mode: capturedMode)
+            return PixelBufferBox(buffer: try Self.mergeSync(frames: capturedFrames, mode: capturedMode))
         }.value
+        return resultBox.buffer
     }
 
     // MARK: - Sync implementation (CPU, deterministic, testable)
