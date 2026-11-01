@@ -191,9 +191,7 @@ private final class FakeCameraService: CameraServiceProtocol, @unchecked Sendabl
     }
     func resetToAuto() throws { lock.withLock { resetToAutoCalls += 1 } }
     func capturePhoto(_ settings: PhotoCaptureSettings) async throws -> CapturedPhoto {
-        lock.lock()
-        _captured.append(settings)
-        lock.unlock()
+        lock.withLock { _captured.append(settings) }
         if let captureError { throw captureError }
         if let photoToReturn { return photoToReturn }
         return CapturedPhoto(data: Data([0x01, 0x02, 0x03]), format: settings.format, width: 12, height: 12, exifSummary: nil)
