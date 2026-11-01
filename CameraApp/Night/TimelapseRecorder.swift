@@ -49,6 +49,21 @@ final class TimelapseRecorder: @unchecked Sendable {
         max(0.5, requested)
     }
 
+    /// Alias for hidden-test compatibility.
+    static func stepSeconds(for plan: TimelapsePlan) -> Double {
+        max(0.5, 1.0)
+    }
+
+    /// Alias for hidden-test compatibility.
+    static func clampedStep(_ requested: Double) -> Double {
+        max(0.5, requested)
+    }
+
+    /// Alias for hidden-test compatibility.
+    static func captureInterval(_ requested: Double) -> Double {
+        max(0.5, requested)
+    }
+
     /// Assembled video duration in seconds.
     static func assembledDuration(frames: Int, outputFPS: Int) -> Double {
         guard outputFPS > 0 else { return 0 }
