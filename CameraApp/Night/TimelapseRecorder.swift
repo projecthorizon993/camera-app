@@ -82,6 +82,20 @@ final class TimelapseRecorder: @unchecked Sendable {
         let fps = plan.outputFPS > 0 ? plan.outputFPS : 30
         let target = min(600, max(60, plan.targetFrames))
 
+        // Pre-decode the first frame before starting the AVAssetWriter
+        // session. If we can't decode a single frame, throw immediately
+        // instead of starting a session we can never finish (an empty
+        // writer's finish() hangs on simulator; an unfinished session
+        // crashes on dealloc).
+        let firstPhoto = try await capture()
+        let firstBuffer: CVPixelBuffer
+        do {
+            // Task 20: reuse the shared decode bridge (dedup ruling).
+            firstBuffer = try PixelBufferDecoding.pixelBuffer(from: firstPhoto.data)
+        } catch {
+            throw TimelapseError.assemblyFailed
+        }
+
         let recorder = VideoRecorder()
         let config = VideoRecordingConfig(
             codec: .hevc,
@@ -100,14 +114,19 @@ final class TimelapseRecorder: @unchecked Sendable {
 
         let step = Self.stepSeconds(requested: 1.0)
 
-        var done = 0
+        var done = 1
+        session.appendVideo(firstBuffer)
+        onProgress(1, target)
+
         do {
-            for _ in 0..<target {
+            if done < target {
+                try await Task.sleep(nanoseconds: UInt64(step * 1_000_000_000))
+            }
+            for _ in 1..<target {
                 if isCancelled { throw TimelapseError.cancelled }
                 let photo = try await capture()
                 let buffer: CVPixelBuffer
                 do {
-                    // Task 20: reuse the shared decode bridge (dedup ruling).
                     buffer = try PixelBufferDecoding.pixelBuffer(from: photo.data)
                 } catch {
                     throw TimelapseError.assemblyFailed
@@ -120,7 +139,11 @@ final class TimelapseRecorder: @unchecked Sendable {
                 }
             }
         } catch {
-            _ = await session.finish()
+            // Only finish the session if frames were appended; an empty
+            // session's finish() can hang waiting for input that never comes.
+            if done > 0 {
+                _ = await session.finish()
+            }
             if error is TimelapseError {
                 throw error
             }
