@@ -51,8 +51,6 @@ func mapPermissionStatus(_ raw: PermissionRawStatus, for permission: AppPermissi
 @MainActor
 final class CameraPermissionService: CameraPermissionServiceProtocol {
 
-    private let logger = Logger(subsystem: "com.jaca.CameraApp", category: "Permissions")
-
     private let locationManager = CLLocationManager()
 
     /// Retained for the duration of a delegate-based location request so the
@@ -97,7 +95,7 @@ final class CameraPermissionService: CameraPermissionServiceProtocol {
             raw = Self.raw(from: locationManager.authorizationStatus)
         }
         if raw == .unknown {
-            logger.error("Unexpected authorization status for \(permission.rawValue, privacy: .public); mapping to .denied")
+            Logger.error("Unexpected authorization status for \(permission.rawValue); mapping to .denied")
         }
         return raw
     }
@@ -143,7 +141,7 @@ final class CameraPermissionService: CameraPermissionServiceProtocol {
     /// back at all is deferred — out of scope for v1.)
     private func requestLocationStatus() async -> PermissionStatus {
         guard CLLocationManager.locationServicesEnabled() else {
-            logger.error("Location Services are disabled system-wide; reporting location as .denied")
+            Logger.error("Location Services are disabled system-wide; reporting location as .denied")
             return .denied
         }
 
