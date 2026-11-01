@@ -37,6 +37,59 @@ enum ZoomStopPlanner {
         let lower = max(bounds.lowerBound, 1)
         return lower...max(bounds.upperBound, lower)
     }
+
+    // MARK: - Lens optical blocks (Task 10)
+
+    /// Apparent-magnification span the given lens covers, ascending from the
+    /// lens's own start stop up to the next optical boundary. `nil` for lenses
+    /// that are out of position (front) or not present on the device. Used both
+    /// for pin clamping (`CaptureHUDState`) and dial shading.
+    ///
+    /// - wide → `1...teleFactor` — wide owns apparent factors from its 1× stop
+    ///   up to the tele handoff at `teleFactor`.
+    /// - tele → `teleFactor...` up to the capability zoom ceiling — tele owns
+    ///   apparent factors from the tele handoff up to the top of the range.
+    static func opticalBlock(
+        lenses: [LensInfo],
+        position: DevicePosition,
+        teleFactor: CGFloat,
+        lens: CameraLensID
+    ) -> ClosedRange<CGFloat>? {
+        // Front camera: single fixed lens — no multi-lens optical block.
+        if position == .front { return nil }
+        switch lens {
+        case .front:
+            return nil
+        case .ultraWide:
+            guard lenses.contains(where: { $0.id == .ultraWide }) else { return nil }
+            // Ultra-wide owns apparent factors from its 0.5 stop up to wide's
+            // 1 stop (wide owns from 1× up).
+            return 0.5...1
+        case .wide:
+            guard lenses.contains(where: { $0.id == .wide }) else { return nil }
+            // Wide owns apparent factors from its 1 stop up to the tele handoff
+            // at `teleFactor` — the classic `1...teleFactor` pin window.
+            return 1...teleFactor
+        case .tele:
+            guard lenses.contains(where: { $0.id == .tele }) else { return nil }
+            // Tele owns apparent factors from the tele handoff (`teleFactor`) up
+            // to the capability zoom ceiling — the exclusive handoff into digital
+            // territory past it. The ceiling is the capability range's upper
+            // bound; the HUD applies it on pinned-top-stop clamps via `zoomRange`.
+            return teleFactor...(CameraCapabilities.iPhone11ProMaxFallback.zoomRange.upperBound)
+        }
+    }
+
+    /// True when the factor sits inside any lens's optical block — optical
+    /// territory. False past the last optical stop: that region is the dial's
+    /// digital zoom, whose factor label is dimmed.
+    static func isOptical(factor: CGFloat, lenses: [LensInfo], position: DevicePosition, teleFactor: CGFloat) -> Bool {
+        let stops = opticalStops(lenses: lenses, position: position, teleFactor: teleFactor)
+        guard let low = stops.first, let high = stops.last else { return false }
+        // Inside the optical span [lowest stop, highest stop]; past the highest
+        // stop the factor is in the dial's digital region.
+        return factor >= low && factor <= high
+    }
 }
 
 // MARK: - Pinch to zoom
