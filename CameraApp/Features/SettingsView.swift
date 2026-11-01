@@ -18,10 +18,25 @@ struct SettingsView: View {
     @ObservedObject var environment: AppEnvironment
 
     @State private var showPhotosAlert = false
+    @State private var showPresetPicker = false
+    @State private var selectedPreset: CapturePreset = .auto
 
     var body: some View {
         NavigationStack {
             List {
+                // MARK: Capture preset
+                Section("Capture Preset") {
+                    Picker("Preset", selection: $selectedPreset) {
+                        ForEach(CapturePreset.allCases, id: \.self) { preset in
+                            Text(preset.rawValue).tag(preset)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .onChange(of: selectedPreset) { _, newValue in
+                        applyPreset(newValue)
+                    }
+                }
+
                 // MARK: Pro mode
                 Section("Pro Mode") {
                     Toggle("Pro Mode", isOn: proModeBinding)
@@ -76,6 +91,9 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                loadPersistedSettings()
+            }
         }
     }
 
@@ -87,9 +105,9 @@ struct SettingsView: View {
             set: { newValue in
                 environment.captureController.settings.proMode = newValue
                 if newValue {
-                    // Apply the currently selected look.
                     try? environment.lookEngine.loadLook(environment.captureController.settings.selectedLook)
                 }
+                savePersistedSettings()
                 Logger.ui("pro mode \(newValue ? "on" : "off")")
             }
         )
@@ -101,12 +119,53 @@ struct SettingsView: View {
             set: { newValue in
                 environment.captureController.settings.selectedLook = newValue
                 try? environment.lookEngine.loadLook(newValue)
+                savePersistedSettings()
                 Logger.ui("look: \(newValue.rawValue)")
             }
         )
     }
 
     // MARK: - Actions
+
+    private func loadPersistedSettings() {
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: SettingsKeys.proMode) != nil {
+            environment.captureController.settings.proMode = defaults.bool(forKey: SettingsKeys.proMode)
+        }
+        if defaults.object(forKey: SettingsKeys.selectedLook) != nil,
+           let raw = defaults.string(forKey: SettingsKeys.selectedLook),
+           let look = LookID(rawValue: raw) {
+            environment.captureController.settings.selectedLook = look
+            try? environment.lookEngine.loadLook(look)
+        }
+        if defaults.object(forKey: SettingsKeys.capturePreset) != nil,
+           let raw = defaults.string(forKey: SettingsKeys.capturePreset),
+           let preset = CapturePreset(rawValue: raw) {
+            selectedPreset = preset
+            applyPreset(preset)
+        }
+        Logger.ui("settings loaded from UserDefaults")
+    }
+
+    private func savePersistedSettings() {
+        let defaults = UserDefaults.standard
+        defaults.set(environment.captureController.settings.proMode, forKey: SettingsKeys.proMode)
+        defaults.set(environment.captureController.settings.selectedLook.rawValue, forKey: SettingsKeys.selectedLook)
+        defaults.set(selectedPreset.rawValue, forKey: SettingsKeys.capturePreset)
+        Logger.ui("settings saved to UserDefaults")
+    }
+
+    private func applyPreset(_ preset: CapturePreset) {
+        environment.captureController.settings.format = preset.format
+        environment.captureController.settings.flashMode = preset.flashMode
+        environment.captureController.settings.proMode = preset.proMode
+        environment.captureController.settings.selectedLook = preset.selectedLook
+        if preset.proMode {
+            try? environment.lookEngine.loadLook(preset.selectedLook)
+        }
+        savePersistedSettings()
+        Logger.ui("preset applied: \(preset.rawValue)")
+    }
 
     private func openStockPhotos() {
         let photosURL = URL(string: "photos-redirect://")!
