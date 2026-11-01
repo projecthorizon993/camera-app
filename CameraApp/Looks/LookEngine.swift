@@ -98,12 +98,15 @@ final class LookEngine: LookEngineProtocol, @unchecked Sendable {
             let ciInput = CIImage(cvPixelBuffer: src)
 
             // ONE CIColorCube filter: inputCubeData from the recipe's cube.
+            // (The CIFilter.colorCube(withColorSpace:) convenience factory is
+            // macOS-only — the string-name constructor + setValue calls are
+            // the universal iOS form of the same filter.)
             let cubePayload = cubeData.withUnsafeBytes { Data($0) }
-            guard let colorCube = CIFilter.colorCube(withColorSpace: nil,
-                                                    cubeDimension: 32,
-                                                    cubeData: cubePayload) else {
+            guard let colorCube = CIFilter(name: "CIColorCube") else {
                 throw LookError.renderFailed("CIColorCube unavailable")
             }
+            colorCube.setValue(cubePayload, forKey: "inputCubeData")
+            colorCube.setValue(32, forKey: "inputCubeDimension")
             colorCube.setValue(ciInput, forKey: kCIInputImageKey)
             guard let graded = colorCube.outputImage else {
                 throw LookError.renderFailed("CIColorCube produced no output")
