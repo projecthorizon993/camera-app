@@ -1,5 +1,18 @@
 import Foundation
 
+// MARK: - Module header
+//
+// CameraApp/Bracketing — Task 12 multi-frame capture engines.
+//
+// Rulings carried forward:
+//   • M2 (portrait-orientation-only): bracket capture is portrait-orientation-only
+//     in v1. `captureBracket` (service) hardcodes `orientation: .portrait` for
+//     software brackets; this module does not attempt landscape bracket merges.
+//   • M5 (partial return): software brackets may return 1..N frames; every frame
+//     count >= 2 merges with normalized weights, a single frame passes through.
+//   • M1 (EXIF): merged output stamps `kCGImagePropertyExifDateTimeOriginal`
+//     from the source frame's `exifSummary.capturedAt`.
+
 // MARK: - MergeMode
 
 /// How a bracket's frames are combined into one photo.
