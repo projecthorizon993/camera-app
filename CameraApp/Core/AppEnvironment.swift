@@ -48,6 +48,19 @@ final class AppEnvironment: ObservableObject {
     /// until the HUD chips are rebound onto them (Task 11).
     var onShutter: () -> Void = {}
 
+    /// T14: video recording recorder (lazy).
+    lazy var videoRecorder: VideoRecorder = VideoRecorder()
+
+    /// T14: recording HUD state.
+    lazy var recordingHUDState: RecordingHUDState = RecordingHUDState()
+
+    /// T14: video controller facade.
+    lazy var videoController: VideoController = VideoController(
+        service: cameraService,
+        recorder: videoRecorder,
+        state: recordingHUDState
+    )
+
     init() {
         // The closure must capture `self` weakly: AppEnvironment lives for the
         // whole app run, but the lazy controllers are created on first touch.

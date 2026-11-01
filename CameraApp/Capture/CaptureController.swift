@@ -239,6 +239,10 @@ final class CaptureController: ObservableObject {
             return "RAW (DNG) is not supported by the active camera format."
         case .videoNotImplemented:
             return "Video recording is not implemented yet."
+        case .unsupportedCapability:
+            // Task 14 added this case (ProRes on A13, 10-bit HDR where
+            // unsupported) — the shift guard surfaces it before recording.
+            return "The requested video feature is not supported on this device."
         }
     }
 }

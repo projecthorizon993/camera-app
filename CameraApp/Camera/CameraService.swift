@@ -91,6 +91,13 @@ final class CameraService: NSObject, CameraServiceProtocol, @unchecked Sendable 
     private var cachedDevices: [CameraLensID: AVCaptureDevice] = [:]
     private var isConfigured = false
 
+    // T14: recording state (sessionQueue-confined except _recordingSession,
+    // which is read from the video output queue under stateLock).
+    private var videoRecorder: VideoRecorder?
+    private var _recordingSession: RecordingSession?
+    private var audioInput: AVCaptureDeviceInput?
+    private var audioOutput: AVCaptureAudioDataOutput?
+
     // MARK: - Capture bookkeeping
 
     private var photoDelegates: [Int64: PhotoCaptureDelegate] = [:]
@@ -271,23 +278,134 @@ final class CameraService: NSObject, CameraServiceProtocol, @unchecked Sendable 
         return try await captureSoftBracket(depth)
     }
 
-    // MARK: - CameraServiceProtocol: video (Task 14 stubs)
+    // MARK: - CameraServiceProtocol: video (Task 14)
 
-    /// TODO(Task 14): configure `AVCaptureMovieFileOutput`/`AVAssetWriter`, audio
-    /// input, ProRes/HEVC selection and start recording.
     func startVideoRecording(_ config: VideoRecordingConfig) throws {
-        throw CameraServiceError.videoNotImplemented
+        try onSessionQueue {
+            guard self.isConfigured else { throw CameraServiceError.sessionNotConfigured }
+            if config.codec == .proRes422 && !self.capabilities.supportsProRes {
+                throw CameraServiceError.unsupportedCapability
+            }
+
+            // T14: add microphone input + audio data output when recording with audio.
+            if config.withAudio {
+                try self.addAudioRecordingLocked()
+            }
+
+            // T14: orientation for the (shared) video output connection.
+            if let conn = self.videoOutput.connection(with: .video) {
+                let angle: CGFloat = 90
+                if conn.isVideoRotationAngleSupported(angle) {
+                    conn.videoRotationAngle = angle
+                }
+            }
+
+            // T14: lock frame rate + shutter-angle exposure.
+            try self.lockVideoFrameRateLocked(fps: config.fps, shutterAngle: 180)
+
+            // T14: recorder + session.
+            if self.videoRecorder == nil { self.videoRecorder = VideoRecorder() }
+            let recorder = self.videoRecorder!
+            let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+                .appendingPathComponent("Videos", isDirectory: true)
+            let session = try recorder.startRun(config: config, directory: dir)
+            self.locked { self._recordingSession = session }
+        }
     }
 
-    /// TODO(Task 14): stop the recorder and return the finished file URL.
-    ///
-    /// Deviation from the brief: the frozen contract types this member as
-    /// `async -> URL` (non-throwing), so it cannot throw
-    /// `CameraServiceError.videoNotImplemented`. It returns a placeholder URL
-    /// that no file backs; Task 14 replaces the body.
     func stopVideoRecording() async -> URL {
-        FileManager.default.temporaryDirectory
+        let session: RecordingSession? = await withCheckedContinuation { continuation in
+            self.sessionQueue.async { [weak self] in
+                guard let self else { continuation.resume(returning: nil); return }
+                let s = self.locked { self._recordingSession }
+                self.locked { self._recordingSession = nil }
+
+                // Restore frame duration + auto exposure.
+                if let device = self.currentDevice {
+                    try? device.lockForConfiguration()
+                    device.activeVideoMinFrameDuration = CMTime.invalid
+                    device.activeVideoMaxFrameDuration = CMTime.invalid
+                    if device.isExposureModeSupported(.continuousAutoExposure) {
+                        device.exposureMode = .continuousAutoExposure
+                    }
+                    device.unlockForConfiguration()
+                }
+
+                // Restore orientation.
+                if let conn = self.videoOutput.connection(with: .video) {
+                    if conn.isVideoRotationAngleSupported(0) {
+                        conn.videoRotationAngle = 0
+                    }
+                }
+
+                // Remove audio input/output.
+                self.removeAudioRecordingLocked()
+
+                continuation.resume(returning: s)
+            }
+        }
+        if let session {
+            return await session.finish()
+        }
+        return FileManager.default.temporaryDirectory
             .appendingPathComponent("camera-service-video-not-implemented.mov")
+    }
+
+    // T14: internal frame-rate lock (must run on sessionQueue).
+    func lockVideoFrameRateLocked(fps: Int, shutterAngle: Double = 180) throws {
+        guard let device = currentDevice else { throw CameraServiceError.sessionNotConfigured }
+        try device.lockForConfiguration()
+        defer { device.unlockForConfiguration() }
+        device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: CMTimeScale(fps))
+        device.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: CMTimeScale(fps))
+
+        let frameDuration = 1.0 / Double(fps)
+        let shutterSeconds = frameDuration * (shutterAngle / 360.0)
+        let format = device.activeFormat
+        let clamped = min(max(shutterSeconds, format.minExposureDuration.seconds), format.maxExposureDuration.seconds)
+        let time = CMTime(seconds: clamped, preferredTimescale: 1_000_000_000)
+        if device.isExposureModeSupported(.custom) {
+            device.setExposureModeCustom(duration: time, iso: device.iso, completionHandler: nil)
+        }
+    }
+
+    private func addAudioRecordingLocked() throws {
+        guard audioInput == nil else { return }
+        guard let mic = AVCaptureDevice.default(for: .audio) else {
+            throw CameraServiceError.configurationFailed("no microphone")
+        }
+        let input = try AVCaptureDeviceInput(device: mic)
+        guard session.canAddInput(input) else {
+            throw CameraServiceError.configurationFailed("cannot add mic input")
+        }
+        session.beginConfiguration()
+        session.addInput(input)
+        self.audioInput = input
+
+        let output = AVCaptureAudioDataOutput()
+        guard session.canAddOutput(output) else {
+            session.removeInput(input)
+            self.audioInput = nil
+            session.commitConfiguration()
+            throw CameraServiceError.configurationFailed("cannot add audio output")
+        }
+        output.setSampleBufferDelegate(self, queue: videoOutputQueue)
+        session.addOutput(output)
+        self.audioOutput = output
+        session.commitConfiguration()
+    }
+
+    private func removeAudioRecordingLocked() {
+        session.beginConfiguration()
+        if let input = audioInput {
+            session.removeInput(input)
+            audioInput = nil
+        }
+        if let output = audioOutput {
+            session.removeOutput(output)
+            audioOutput = nil
+        }
+        session.commitConfiguration()
     }
 
     // MARK: - CameraServiceProtocol: focus / exposure
@@ -355,6 +473,9 @@ final class CameraService: NSObject, CameraServiceProtocol, @unchecked Sendable 
                 throw CameraServiceError.configurationFailed("cannot add video data output")
             }
             session.addOutput(videoOutput)
+            // T14: recording reuses this same video data output (no second output);
+            // audio input/output are added/removed on begin/endConfiguration
+            // during recording sessions (see addAudioRecordingLocked).
             videoOutput.videoSettings = [
                 kCVPixelBufferPixelFormatTypeKey as String: NSNumber(value: kCVPixelFormatType_32BGRA)
             ]
@@ -925,15 +1046,27 @@ final class CameraService: NSObject, CameraServiceProtocol, @unchecked Sendable 
 
 // MARK: - Preview frames
 
-extension CameraService: AVCaptureVideoDataOutputSampleBufferDelegate {
+extension CameraService: AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudioDataOutputSampleBufferDelegate {
 
-    /// Called on `videoOutputQueue`. The handler is copied out under the lock and
-    /// invoked outside it; the buffer is only valid for the duration of the call
-    /// (the contract forbids retaining it).
+    /// Called on `videoOutputQueue` for both the (shared) video data output
+    /// and the recording audio data output. The handler is copied out under the
+    /// lock and invoked outside it; the buffer is only valid for the duration
+    /// of the call (the contract forbids retaining it).
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        guard let handler = locked({ _previewFrameHandler }) else { return }
+        if output === audioOutput {
+            if let session = locked({ _recordingSession }) {
+                session.appendAudio(sampleBuffer)
+            }
+            return
+        }
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        handler(pixelBuffer)
+        if let handler = locked({ _previewFrameHandler }) {
+            handler(pixelBuffer)
+        }
+        // T14: dual-consumer hook — feed recorder while active (preview path untouched).
+        if let session = locked({ _recordingSession }) {
+            session.appendVideo(pixelBuffer)
+        }
     }
 }
 

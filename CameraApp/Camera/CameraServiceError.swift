@@ -51,4 +51,8 @@ enum CameraServiceError: Error, Sendable {
     /// Video recording is owned by Task 14; both recording entry points are
     /// intentionally unimplemented here.
     case videoNotImplemented
+
+    /// The active device/capability set does not support the requested video
+    /// feature (e.g. ProRes on A13, or 10-bit HDR where unsupported).
+    case unsupportedCapability
 }
