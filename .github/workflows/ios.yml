@@ -64,7 +64,7 @@ jobs:
         run: brew install xcodegen && xcodegen generate
       - name: Discover simulator destination
         run: |
-          DEST="$(DEVELOPER_DIR="$XCODE_APP/Contents/Developer" xcodebuild -showdestinations -scheme CameraApp | grep -m1 -oE 'platform:iOS Simulator,[^ ]+')"
+          DEST="$(DEVELOPER_DIR="$XCODE_APP/Contents/Developer" xcodebuild -showdestinations -scheme CameraApp 2>/dev/null | grep -oE 'platform=iOS Simulator,[^[:space:]]+' | head -1)"
           if [ -z "$DEST" ]; then
             echo "::error::No iOS Simulator destination found"
             exit 1
