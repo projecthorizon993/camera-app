@@ -44,4 +44,60 @@ final class ZoomStopPlannerTests: XCTestCase {
         XCTAssertEqual(range.lowerBound, 1)
         XCTAssertEqual(range.upperBound, 10)
     }
+
+    // MARK: - Task 10 — lens optical blocks + optical zoom region
+
+    func testOpticalBlockWideSpansToTeleHandoff() {
+        let block = ZoomStopPlanner.opticalBlock(
+            lenses: Self.a13Lenses,
+            position: .back,
+            teleFactor: 2,
+            lens: .wide
+        )
+        guard let block else { return XCTFail("wide optical block must exist on the back camera") }
+        XCTAssertEqual(block, 1...2)
+    }
+
+    func testOpticalBlockTeleSpansToCapabilityCeiling() {
+        let block = ZoomStopPlanner.opticalBlock(
+            lenses: Self.a13Lenses,
+            position: .back,
+            teleFactor: 2,
+            lens: .tele
+        )
+        guard let block else { return XCTFail("tele optical block must exist on the back camera") }
+        XCTAssertEqual(block, 2...10)
+    }
+
+    func testOpticalBlockUltraWideSpansToWideStop() {
+        let block = ZoomStopPlanner.opticalBlock(
+            lenses: Self.a13Lenses,
+            position: .back,
+            teleFactor: 2,
+            lens: .ultraWide
+        )
+        guard let block else { return XCTFail("ultraWide optical block must exist on the back camera") }
+        XCTAssertEqual(block, 0.5...1)
+    }
+
+    func testOpticalBlockFrontIsNil() {
+        let block = ZoomStopPlanner.opticalBlock(
+            lenses: Self.a13Lenses,
+            position: .back,
+            teleFactor: 2,
+            lens: .front
+        )
+        XCTAssertNil(block)
+    }
+
+    func testIsOpticalWithinStopsAndFalsePastTopStop() {
+        let lenses = Self.a13Lenses
+        let position = DevicePosition.back
+        let teleFactor = 2
+        XCTAssertTrue(ZoomStopPlanner.isOptical(factor: 0.5, lenses: lenses, position: position, teleFactor: teleFactor))
+        XCTAssertTrue(ZoomStopPlanner.isOptical(factor: 1, lenses: lenses, position: position, teleFactor: teleFactor))
+        XCTAssertTrue(ZoomStopPlanner.isOptical(factor: 1.9, lenses: lenses, position: position, teleFactor: teleFactor))
+        XCTAssertTrue(ZoomStopPlanner.isOptical(factor: 2, lenses: lenses, position: position, teleFactor: teleFactor))
+        XCTAssertFalse(ZoomStopPlanner.isOptical(factor: 4, lenses: lenses, position: position, teleFactor: teleFactor))
+    }
 }
