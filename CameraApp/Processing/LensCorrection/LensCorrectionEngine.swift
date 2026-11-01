@@ -1,5 +1,6 @@
 import Foundation
 import CoreVideo
+import os
 import Metal
 
 // Task 13 — lens-correction engine (frozen-contract `LensCorrectionProtocol`

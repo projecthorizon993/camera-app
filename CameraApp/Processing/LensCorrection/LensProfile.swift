@@ -26,6 +26,12 @@ struct LensProfile: Codable, Sendable, Equatable {
     let source: Source
 }
 
+// JSON round-trip needs Codable for the String-raw enums. Both live in this
+// module, so conforming via extension is legal — wire format is the raw
+// value ("wide"/"tele"/"ultrawide" and the source case names), lossless.
+extension CameraLensID: Codable {}
+extension Source: Codable {}
+
 /// Loads compiled-in + runtime lens profiles. Capability-driven: missing
 /// bundled file/lens → empty result, errors surfaced by callers (no crash).
 enum LensProfileStore {
