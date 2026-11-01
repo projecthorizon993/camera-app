@@ -109,4 +109,6 @@ enum SettingsKeys {
     static let selectedLook = "settings.selectedLook"
     static let capturePreset = "settings.capturePreset"
     static let watermarkEnabled = "settings.watermarkEnabled"
+    static let lensCorrectionEnabled = "settings.lensCorrectionEnabled"
+    static let showWatermarkPreview = "settings.showWatermarkPreview"
 }
