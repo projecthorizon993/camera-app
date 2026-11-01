@@ -28,6 +28,38 @@ import SwiftUI
 // T8 WIRING: the shutter action is `environment.onShutter`, read at tap
 // time so Task 8 can assign the hook late (see AppEnvironment).
 
+import SwiftUI
+
+// Task 7 — the live viewfinder screen (brief deliverable 1).
+//
+// PREVIEW PATH (brief §2 decision)
+// -------------------------------
+// Frames flow: `cameraService.setPreviewFrameHandler` (video data output →
+// `videoOutputQueue`) → `MetalRenderer.submitFrame` (atomic slot swap) →
+// `RendererView`/MTKView render thread → screen. The MetalRenderer path is
+// chosen over any raw preview layer because T6's `RendererView` usage
+// contract names exactly this composition for the viewfinder, and the
+// renderer consumes the zero-copy pixel buffer directly. The async
+// `ProcessingPipeline` stays the CAPTURE-time path (Task 8): with no preview
+// stages registered it would only add per-frame async hops. Grid assist is
+// drawn by the kit's SwiftUI `ViewfinderGridOverlay` (toggleable), so the
+// renderer's Metal overlay provider is left empty (see AppEnvironment).
+//
+// LIFECYCLE & CONCURRENCY
+// -----------------------
+// `.task` connects the frame feed and starts the session; every control is
+// disabled/dimmed until `sessionReady` flips (T4 review I1). Sync service
+// members run off-main through `CameraControlGate`; `startSession` is an
+// async protocol member awaited directly (the service hops internally —
+// Contracts.swift concurrency notes). Re-appear after a pushed screen
+// re-asserts the session/handler via `beginSession`; hiding only suspends
+// the frame feed so returning is instant.
+//
+// T8 WIRING: the shutter action is `environment.onShutter`, read at tap
+// time so Task 8 can assign the hook late (see AppEnvironment).
+
+import Combine
+
 struct ViewfinderScreen: View {
 
     // MARK: - Dependencies
@@ -103,7 +135,8 @@ struct ViewfinderScreen: View {
                     },
                     nightController: environment.nightController,
                     timelapseController: environment.timelapseController,
-                    router: router
+                    router: router,
+                    environment: environment
                 )
             }
         }
@@ -143,21 +176,54 @@ struct ViewfinderScreen: View {
 
     private var preview: some View {
         GeometryReader { geo in
-            RendererView(renderer: renderer)
-                .frame(width: geo.size.width, height: geo.size.height)
-                .contentShape(Rectangle())
-                .onTapGesture(coordinateSpace: .local) { point in
-                    handleTap(at: point, previewSize: geo.size)
-                }
-                .pinchToZoom(hud: hud, isEnabled: hud.sessionReady)
-                .overlay {
-                    ViewfinderGridOverlay(isVisible: hud.gridVisible)
-                    if let point = focusPoint {
-                        focusIndicator(at: point)
+            ZStack {
+                RendererView(renderer: renderer)
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .contentShape(Rectangle())
+                    .onTapGesture(coordinateSpace: .local) { point in
+                        handleTap(at: point, previewSize: geo.size)
                     }
+                    .pinchToZoom(hud: hud, isEnabled: hud.sessionReady)
+                if environment.captureController.settings.proMode ||
+                   UserDefaults.standard.bool(forKey: SettingsKeys.showWatermarkPreview) {
+                    watermarkOverlay
                 }
+            }
+            .overlay {
+                ViewfinderGridOverlay(isVisible: hud.gridVisible)
+                if let point = focusPoint {
+                    focusIndicator(at: point)
+                }
+            }
         }
         .ignoresSafeArea()
+    }
+
+    /// Watermark preview overlay — shows the watermark text at bottom center
+    /// when the preview toggle is enabled in Settings.
+    private var watermarkOverlay: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                watermarkText
+                Spacer()
+            }
+            .padding(.bottom, 60)
+        }
+        .allowsHitTesting(false)
+    }
+
+    private var watermarkText: some View {
+        let template = environment.watermarkRenderer.availableTemplates.first
+        let lines = template?.lines.compactMap {
+            WatermarkPlanner.resolve(content: $0.content, exif: nil, metadata: [:])
+        } ?? []
+        let text = lines.joined(separator: "  ")
+        return Text(text)
+            .font(.system(size: 14, weight: .semibold, design: .monospaced))
+            .foregroundStyle(Color.white.opacity(0.8))
+            .shadow(color: Color.black.opacity(0.7), radius: 2, x: 1, y: 1)
     }
 
     /// Converts the tap through Task 4's static helper and focuses there.

@@ -28,6 +28,17 @@ final class LensCorrectionEngine: LensCorrectionProtocol, ProcessingStageProtoco
         case warpFailed(String)
     }
 
+    // MARK: Public toggle
+
+    /// When false, apply() passes input through unchanged (no GPU work).
+    /// Defaults to false so the "sloppy" hardcoded principal point doesn't
+    /// distort captures until the user explicitly enables it.
+    private static let isEnabledLock = OSAllocatedUnfairLock(initialState: false)
+    static var isEnabled: Bool {
+        get { isEnabledLock.withLock { $0 } }
+        set { isEnabledLock.withLock { $0 = newValue } }
+    }
+
     // MARK: State
 
     private struct EngineState: @unchecked Sendable {
@@ -85,6 +96,9 @@ final class LensCorrectionEngine: LensCorrectionProtocol, ProcessingStageProtoco
     }
 
     func apply(_ input: CVPixelBuffer, lens: CameraLensID, mode: LensCorrectionMode, strength: Double) async throws -> CVPixelBuffer {
+        // Lens correction disabled by default — pass input through unchanged.
+        guard Self.isEnabled else { return input }
+
         var profile: LensProfile? = nil
         switch mode {
         case .off:
