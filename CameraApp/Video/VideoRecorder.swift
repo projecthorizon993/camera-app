@@ -39,7 +39,11 @@ final class VideoRecorder: @unchecked Sendable {
             AVVideoAverageBitRateKey: bitrate,
         ]
         if codecType == .h264 || codecType == .hevc {
-            compression[AVVideoProfileLevelKey] = (codecType == .h264) ? AVVideoProfileLevelH264HighAutoLevel : AVVideoProfileLevelHEVCMainAutoLevel
+            // AVVideoProfileLevelHEVCMainAutoLevel does not resolve on this
+            // SDK surface; the constant is documented as the string constant
+            // "HEVCMainAutoLevel" (every AVVideoProfileLevel* constant is a
+            // bare string), so the literal fixes lookup without behavior drift.
+            compression[AVVideoProfileLevelKey] = (codecType == .h264) ? AVVideoProfileLevelH264HighAutoLevel : "HEVCMainAutoLevel"
         }
 
         let videoSettings: [String: Any] = [
@@ -177,7 +181,7 @@ final class RecordingSession: @unchecked Sendable {
                 audioInput?.markAsFinished()
 
                 writer.finishWriting {
-                    continuation.resume(returning: url)
+                    continuation.resume(returning: self.url)
                 }
             }
         }
