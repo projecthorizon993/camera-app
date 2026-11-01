@@ -46,7 +46,7 @@ struct RootView: View {
             // already gated at the root of the stack.
             viewfinder
         case .gallery:
-            GalleryPlaceholder()
+            GalleryScreen(model: environment.galleryModel)
         case .settings:
             SettingsPlaceholder()
         }

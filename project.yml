@@ -26,6 +26,7 @@ targets:
         NSCameraUsageDescription: "CameraApp needs the camera to capture photos and video."
         NSMicrophoneUsageDescription: "CameraApp needs the microphone to record video with audio."
         NSPhotoLibraryAddUsageDescription: "CameraApp saves captures to your photo library."
+        NSPhotoLibraryUsageDescription: "CameraApp shows the photos and videos you captured."
         NSLocationWhenInUseUsageDescription: "CameraApp can geotag captures if you enable it."
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

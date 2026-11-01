@@ -39,6 +39,10 @@ final class AppEnvironment: ObservableObject {
         permissionService: permissionService
     )
 
+    /// Task 15: photo-library-backed gallery. lazy var galleryModel: GalleryViewModel
+    /// = GalleryViewModel(source: LiveGallerySource()).
+    lazy var galleryModel: GalleryViewModel = GalleryViewModel(source: LiveGallerySource())
+
     /// T8 WIRING POINT — capture hook. The viewfinder's shutter button calls
     /// this closure (`ViewfinderScreen` reads `environment.onShutter` at tap
     /// time, so a late assignment by Task 8 is picked up). Assigned once here
