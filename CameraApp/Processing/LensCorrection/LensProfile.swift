@@ -22,8 +22,8 @@ struct LensProfile: Codable, Sendable, Equatable {
         let k3: Float
     }
     /// Principal point as a fraction of image width/height (0...1).
-    let principalPointX: Float = 0.5
-    let principalPointY: Float = 0.5
+    let principalPointX: Float
+    let principalPointY: Float
     let caOffsets: Float
     let vignetteGain: Float
     let source: Source
@@ -34,6 +34,21 @@ struct LensProfile: Codable, Sendable, Equatable {
 // value ("wide"/"tele"/"ultrawide" and the source case names), lossless.
 extension CameraLensID: Codable {}
 extension Source: Codable {}
+
+// Custom decoder: principalPointX/Y default to 0.5 for profiles authored
+// before the field existed (e.g. bundled wide-neutral.json).
+extension LensProfile {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        lensID = try container.decode(CameraLensID.self, forKey: .lensID)
+        distortion = try container.decode(DistortionCoefficients.self, forKey: .distortion)
+        principalPointX = try container.decodeIfPresent(Float.self, forKey: .principalPointX) ?? 0.5
+        principalPointY = try container.decodeIfPresent(Float.self, forKey: .principalPointY) ?? 0.5
+        caOffsets = try container.decode(Float.self, forKey: .caOffsets)
+        vignetteGain = try container.decode(Float.self, forKey: .vignetteGain)
+        source = try container.decode(Source.self, forKey: .source)
+    }
+}
 
 /// Loads compiled-in + runtime lens profiles. Capability-driven: missing
 /// bundled file/lens → empty result, errors surfaced by callers (no crash).
