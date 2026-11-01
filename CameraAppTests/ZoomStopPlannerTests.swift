@@ -93,7 +93,7 @@ final class ZoomStopPlannerTests: XCTestCase {
     func testIsOpticalWithinStopsAndFalsePastTopStop() {
         let lenses = Self.a13Lenses
         let position = DevicePosition.back
-        let teleFactor = 2
+        let teleFactor: CGFloat = 2
         XCTAssertTrue(ZoomStopPlanner.isOptical(factor: 0.5, lenses: lenses, position: position, teleFactor: teleFactor))
         XCTAssertTrue(ZoomStopPlanner.isOptical(factor: 1, lenses: lenses, position: position, teleFactor: teleFactor))
         XCTAssertTrue(ZoomStopPlanner.isOptical(factor: 1.9, lenses: lenses, position: position, teleFactor: teleFactor))
