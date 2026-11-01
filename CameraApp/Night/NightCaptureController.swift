@@ -48,7 +48,7 @@ final class NightCaptureController {
     init(
         service: any CameraServiceProtocol,
         permissionService: (any CameraPermissionServiceProtocol)? = nil,
-        saveAsset: @escaping PhotoSaver.SaveAsset = { photo in
+        saveAsset: @escaping PhotoSaver.SaveAsset = { @Sendable photo in
             let uti: String
             switch photo.format {
             case .jpeg: uti = UTType.jpeg.identifier
