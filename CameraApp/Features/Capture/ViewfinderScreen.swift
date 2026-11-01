@@ -55,13 +55,18 @@ struct ViewfinderScreen: View {
         service: any CameraServiceProtocol,
         renderer: MetalRenderer?,
         router: Router,
-        environment: AppEnvironment
+        environment: AppEnvironment,
+        settings: CaptureSettingsModel
     ) {
         self.environment = environment
         self.router = router
         self.renderer = renderer
         self.service = service
-        self._hud = State(initialValue: CaptureHUDState(service: service))
+        // `settings` is the single capture-truth source (Task 8's
+        // `CaptureController.settings`); the HUD's flash/timer/format chips
+        // are pass-throughs over it. Constructed here (nonisolated init) so
+        // the `State(initialValue:)` thunk runs in a nonisolated context.
+        self._hud = State(initialValue: CaptureHUDState(service: service, settings: settings))
     }
 
     // MARK: - Body
@@ -160,6 +165,22 @@ struct ViewfinderScreen: View {
             HUDChip(icon: hud.flashIcon, state: hud.flashMode == .off ? .off : .on) {
                 hud.cycleFlash()
             }
+            .disabled(hud.format == .dng)
+            .opacity(hud.format == .dng ? Theme.Opacity.dimmed : 1)
+            HUDChip(
+                icon: "photo",
+                label: hud.format == .jpeg ? "JPEG" : (hud.format == .heif ? "HEIF" : "DNG"),
+                state: .off
+            ) {
+                let next: CaptureFormat
+                switch hud.format {
+                case .jpeg: next = .heif
+                case .heif: next = .dng
+                case .dng: next = .jpeg
+                }
+                hud.selectFormat(next)
+            }
+            .fixedSize()
             HUDChip(
                 icon: "timer",
                 label: hud.timerSeconds > 0 ? "\(hud.timerSeconds)s" : nil,

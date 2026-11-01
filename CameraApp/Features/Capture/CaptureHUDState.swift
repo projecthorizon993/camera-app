@@ -39,9 +39,24 @@ final class CaptureHUDState {
     private(set) var controlErrorText: String?
 
     // MARK: - HUD toggles (state only — capture wiring is Task 8)
+    //
+    // Flash / timer / format are pass-throughs over the injected
+    // `CaptureSettingsModel` (Task 8's single capture-truth source) — see the
+    // `captureSettings` plumbing below. Computed properties still register
+    // with the Observation framework when accessed during body evaluation.
 
-    var flashMode: FlashMode = .off
-    var timerSeconds: Int = 0
+    var flashMode: FlashMode {
+        get { captureSettings.flashMode }
+        set { captureSettings.flashMode = newValue }
+    }
+    var timerSeconds: Int {
+        get { captureSettings.timerSeconds }
+        set { captureSettings.timerSeconds = newValue }
+    }
+    var format: CaptureFormat {
+        get { captureSettings.format }
+        set { captureSettings.format = newValue }
+    }
     var gridVisible = false
     var manualPanelVisible = false
     var captureMode: CaptureMode = .photo
@@ -65,6 +80,12 @@ final class CaptureHUDState {
     /// because `any CameraServiceProtocol` is not Sendable. The service's own
     /// internal session queue confines its hardware state.
     nonisolated(unsafe) private let service: any CameraServiceProtocol
+
+    /// Single capture-truth source (Task 8's CaptureSettingsModel). Stored
+    /// `nonisolated(unsafe)`: written once from the nonisolated init, read/
+    /// mutated only from @MainActor members (same soundness pattern as the
+    /// service property above).
+    nonisolated(unsafe) private let captureSettings: CaptureSettingsModel
 
     /// Sync members, executed off-main by the gate.
     private let controls: CameraControlGate
@@ -99,9 +120,11 @@ final class CaptureHUDState {
     /// nonisolated init may not write isolated state).
     nonisolated init(
         service: any CameraServiceProtocol,
+        settings: CaptureSettingsModel,
         clock: @escaping @Sendable () -> Double = { ProcessInfo.processInfo.systemUptime }
     ) {
         self.service = service
+        self.captureSettings = settings
         self.controls = CameraControlGate(service: service)
         self.clock = clock
     }
@@ -250,13 +273,21 @@ final class CaptureHUDState {
 
     // MARK: - HUD cycles (state only)
 
-    /// off → auto → on → off.
+    /// off → auto → on → off. No-op while RAW (.dng) is selected — RAW is
+    /// mutually exclusive with flash (plan §7).
     func cycleFlash() {
+        guard format != .dng else { return }
         switch flashMode {
         case .off: flashMode = .auto
         case .auto: flashMode = .on
         case .on: flashMode = .off
         }
+    }
+
+    /// Pass-through over the capture-truth source's `selectFormat`, which
+    /// enforces the RAW/flash exclusivity rule.
+    func selectFormat(_ format: CaptureFormat) {
+        captureSettings.selectFormat(format)
     }
 
     /// 0 s → 3 s → 10 s → 0 s.

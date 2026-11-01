@@ -68,6 +68,14 @@ final class CaptureSettingsModel: ObservableObject {
 
     @Published var format: CaptureFormat = .jpeg
 
+    /// Sets the capture format, enforcing the platform exclusivity rule
+    /// (plan §7): RAW is mutually exclusive with flash. Selecting `.dng`
+    /// resets flash to `.off`; other formats leave flash untouched.
+    func selectFormat(_ format: CaptureFormat) {
+        self.format = format
+        if format == .dng { flashMode = .off }
+    }
+
     /// Builds the frozen-contract settings value for one shot.
     func makeSettings(orientation: PortraitLandscape = .portrait) -> PhotoCaptureSettings {
         PhotoCaptureSettings(

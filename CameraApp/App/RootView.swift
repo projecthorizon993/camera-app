@@ -24,11 +24,15 @@ struct RootView: View {
     /// The live viewfinder (Task 7). The permission gate stays OUTSIDE/above
     /// (applied at the root of the stack, Task 3) — not duplicated here.
     private var viewfinder: some View {
+        // `environment.captureController` is @MainActor-isolated; reading it
+        // here (inside `body`/a view-builder) compiles cleanly, and its
+        // `.settings` is the single capture-truth source the HUD binds to.
         ViewfinderScreen(
             service: environment.cameraService,
             renderer: environment.renderer,
             router: router,
-            environment: environment
+            environment: environment,
+            settings: environment.captureController.settings
         )
     }
 
