@@ -65,7 +65,7 @@ jobs:
       - name: Discover simulator destination
         run: |
           DEST="$(DEVELOPER_DIR="$XCODE_APP/Contents/Developer" xcodebuild -showdestinations -scheme CameraApp 2>&1 | \
-            awk '/platform:iOS Simulator/ {
+            awk '/platform:iOS Simulator/ && !/Placeholder/ {
               match($0, /id:[^,]+/); id=substr($0, RSTART+3, RLENGTH-3); gsub(/[[:space:]]/, "", id);
               if(id!="") {
                 print "platform=iOS Simulator,id="id;
@@ -73,7 +73,7 @@ jobs:
               }
             }')"
           if [ -z "$DEST" ]; then
-            echo "::error::No iOS Simulator destination found"
+            echo "::error::No real iOS Simulator destination found (placeholders cannot run tests)"
             echo "::group::showdestinations output"
             DEVELOPER_DIR="$XCODE_APP/Contents/Developer" xcodebuild -showdestinations -scheme CameraApp 2>&1 || true
             echo "::endgroup::"
