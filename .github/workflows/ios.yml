@@ -65,7 +65,15 @@ jobs:
       - name: Discover simulator destination
         run: |
           DEST="$(DEVELOPER_DIR="$XCODE_APP/Contents/Developer" xcodebuild -showdestinations -scheme CameraApp 2>&1 | \
-            grep -m1 -oE 'platform=iOS Simulator[^[:space:]]+' || true)"
+            awk '/platform:iOS Simulator/ {
+              match($0, /id:[^,]+/); id=substr($0, RSTART+3, RLENGTH-3); gsub(/[[:space:]]/, "", id);
+              match($0, /OS:[^,]+/); os=substr($0, RSTART+3, RLENGTH-3); gsub(/[[:space:]]/, "", os);
+              match($0, /name:[^,}]+/); name=substr($0, RSTART+5, RLENGTH-5); gsub(/^[[:space:]]+|[[:space:]]+$/, "", name);
+              if(id!="" && os!="" && name!="") {
+                print "platform=iOS Simulator,id="id",OS="os",name="name;
+                exit
+              }
+            }')"
           if [ -z "$DEST" ]; then
             echo "::error::No iOS Simulator destination found"
             echo "::group::showdestinations output"
