@@ -115,6 +115,17 @@ final class TimelapseRecorder: @unchecked Sendable {
         let step = Self.stepSeconds(requested: 1.0)
 
         var done = 1
+        var sessionFinished = false
+
+        /// Finish the AVAssetWriter session exactly once. An empty session
+        /// (done == 0) must never be finished — its finish() hangs. Returns
+        /// nil if already finished or nothing was appended.
+        func finishOnce() async -> URL? {
+            guard !sessionFinished, done > 0 else { return nil }
+            sessionFinished = true
+            return await session.finish()
+        }
+
         session.appendVideo(firstBuffer)
         onProgress(1, target)
 
@@ -139,18 +150,16 @@ final class TimelapseRecorder: @unchecked Sendable {
                 }
             }
         } catch {
-            // Only finish the session if frames were appended; an empty
-            // session's finish() can hang waiting for input that never comes.
-            if done > 0 {
-                _ = await session.finish()
-            }
+            _ = await finishOnce()
             if error is TimelapseError {
                 throw error
             }
             throw TimelapseError.captureFailed(error.localizedDescription)
         }
 
-        let url = await session.finish()
+        guard let url = await finishOnce() else {
+            throw TimelapseError.assemblyFailed
+        }
         return url
     }
 
