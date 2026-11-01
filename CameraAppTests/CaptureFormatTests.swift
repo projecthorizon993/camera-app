@@ -60,7 +60,12 @@ final class CaptureFormatTests: XCTestCase {
     func testStorageEstimatorRemainingShots() {
         XCTAssertEqual(StorageEstimator.remainingShots(freeBytes: 10 * 1024 * 1024, for: .dng), 0)
         XCTAssertEqual(StorageEstimator.remainingShots(freeBytes: 30 * 1024 * 1024, for: .jpeg), 7)
-        XCTAssertEqual(StorageEstimator.remainingShots(freeBytes: 0, for: .heif), 0)
+        // No free space (or a negative sentinel from a failed probe) yields
+        // zero remaining shots for EVERY format.
+        for format in CaptureFormat.allCases {
+            XCTAssertEqual(StorageEstimator.remainingShots(freeBytes: 0, for: format), 0)
+            XCTAssertEqual(StorageEstimator.remainingShots(freeBytes: -1, for: format), 0)
+        }
     }
 
     // MARK: - CaptureSettingsModel selectFormat exclusivity
