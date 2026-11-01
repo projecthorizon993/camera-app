@@ -48,4 +48,29 @@ final class CaptureFormatTests: XCTestCase {
         XCTAssertEqual(WatermarkContent.timestamp("yyyy-MM-dd"), .timestamp("yyyy-MM-dd"))
         XCTAssertNotEqual(WatermarkContent.literal("ISO"), .deviceModel)
     }
+
+    // MARK: - StorageEstimator
+
+    func testStorageEstimatorPerShotBytesPositive() {
+        for format in CaptureFormat.allCases {
+            XCTAssertGreaterThan(StorageEstimator.estimatePerShotBytes(format), 0)
+        }
+    }
+
+    func testStorageEstimatorRemainingShots() {
+        XCTAssertEqual(StorageEstimator.remainingShots(freeBytes: 10 * 1024 * 1024, for: .dng), 0)
+        XCTAssertEqual(StorageEstimator.remainingShots(freeBytes: 30 * 1024 * 1024, for: .jpeg), 7)
+        XCTAssertEqual(StorageEstimator.remainingShots(freeBytes: 0, for: .heif), 0)
+    }
+
+    // MARK: - CaptureSettingsModel selectFormat exclusivity
+
+    @MainActor
+    func testSelectFormatDngResetsFlash() {
+        let model = CaptureSettingsModel()
+        model.flashMode = .on
+        model.selectFormat(.dng)
+        XCTAssertEqual(model.format, .dng)
+        XCTAssertEqual(model.flashMode, .off)
+    }
 }

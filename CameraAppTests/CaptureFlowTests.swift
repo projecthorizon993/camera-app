@@ -199,8 +199,8 @@ final class CaptureFlowTests: XCTestCase {
     func testSaverSavesWhenPermissionGranted() async {
         let permissions = CaptureFlowMockPermissionService(status: .granted)
         let recorder = CaptureFlowSaveRecorder()
-        let saver = PhotoSaver(permissionService: permissions) { data in
-            recorder.record(data)
+        let saver = PhotoSaver(permissionService: permissions) { photo in
+            recorder.record(photo.data)
         }
 
         let photo = makePhoto()
@@ -216,8 +216,8 @@ final class CaptureFlowTests: XCTestCase {
     func testSaverGatesOnNotDeterminedPermission() async {
         let permissions = CaptureFlowMockPermissionService(status: .notDetermined)
         let recorder = CaptureFlowSaveRecorder()
-        let saver = PhotoSaver(permissionService: permissions) { data in
-            recorder.record(data)
+        let saver = PhotoSaver(permissionService: permissions) { photo in
+            recorder.record(photo.data)
         }
 
         let outcome = await saver.save(makePhoto())
@@ -230,8 +230,8 @@ final class CaptureFlowTests: XCTestCase {
     func testSaverGatesOnDeniedPermission() async {
         let permissions = CaptureFlowMockPermissionService(status: .denied)
         let recorder = CaptureFlowSaveRecorder()
-        let saver = PhotoSaver(permissionService: permissions) { data in
-            recorder.record(data)
+        let saver = PhotoSaver(permissionService: permissions) { photo in
+            recorder.record(photo.data)
         }
 
         let outcome = await saver.save(makePhoto())
@@ -257,8 +257,8 @@ final class CaptureFlowTests: XCTestCase {
     func testSaverRejectsEmptyPayload() async {
         let permissions = CaptureFlowMockPermissionService(status: .granted)
         let recorder = CaptureFlowSaveRecorder()
-        let saver = PhotoSaver(permissionService: permissions) { data in
-            recorder.record(data)
+        let saver = PhotoSaver(permissionService: permissions) { photo in
+            recorder.record(photo.data)
         }
 
         let outcome = await saver.save(makePhoto(data: Data()))
@@ -275,8 +275,8 @@ final class CaptureFlowTests: XCTestCase {
         let camera = CaptureFlowMockCameraService()
         let permissions = CaptureFlowMockPermissionService(status: .granted)
         let recorder = CaptureFlowSaveRecorder()
-        let controller = makeController(camera: camera, permission: permissions) { data in
-            recorder.record(data)
+        let controller = makeController(camera: camera, permission: permissions) { photo in
+            recorder.record(photo.data)
         }
 
         let settings = PhotoCaptureSettings(format: .jpeg, flash: .on, timerSeconds: 0, orientation: .portrait)
@@ -297,8 +297,8 @@ final class CaptureFlowTests: XCTestCase {
         let camera = CaptureFlowMockCameraService()
         let permissions = CaptureFlowMockPermissionService(status: .denied)
         let recorder = CaptureFlowSaveRecorder()
-        let controller = makeController(camera: camera, permission: permissions) { data in
-            recorder.record(data)
+        let controller = makeController(camera: camera, permission: permissions) { photo in
+            recorder.record(photo.data)
         }
 
         await controller.captureCurrent()
