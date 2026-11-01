@@ -5,6 +5,8 @@ import os
 /// Console.app and `log collect` on device; levels are cheap no-ops when the
 /// OS isn't listening.
 enum Logger {
+    private init() {}
+
     private static let subsystem = "com.jaca.cameraapp"
 
     private static let log = OSLog(subsystem: subsystem, category: "camera")
