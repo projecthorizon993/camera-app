@@ -1,5 +1,6 @@
 import Foundation
 import Photos
+import UniformTypeIdentifiers
 
 // Task 8 — the photo-library save leg of the capture flow. Authorization is
 // checked FIRST (`.addOnly`, via the injected Task 3 permission service); the
@@ -34,7 +35,9 @@ enum PhotoSaveOutcome: Equatable, Sendable {
 struct PhotoSaver: @unchecked Sendable {
 
     /// Injected asset-save step; the default writes into `PHPhotoLibrary`.
-    typealias SaveAsset = @Sendable (Data) async throws -> Void
+    /// Carries the full `CapturedPhoto` so the default saver can pick the
+    /// correct uniform type identifier per format.
+    typealias SaveAsset = @Sendable (CapturedPhoto) async throws -> Void
 
     private let permissionService: any CameraPermissionServiceProtocol
     private let saveAsset: SaveAsset
@@ -65,7 +68,7 @@ struct PhotoSaver: @unchecked Sendable {
             return .failed("The capture produced no image data to save.")
         }
         do {
-            try await saveAsset(photo.data)
+            try await saveAsset(photo)
             return .saved
         } catch {
             return .failed("Could not save to Photos: \(error.localizedDescription)")
@@ -74,10 +77,24 @@ struct PhotoSaver: @unchecked Sendable {
 
     /// The real save. The change block runs inside `PHPhotoLibrary`'s own
     /// internal queue — never on the caller's thread.
-    private static let systemPhotoLibrarySave: SaveAsset = { data in
+    private static let systemPhotoLibrarySave: SaveAsset = { photo in
         try await PHPhotoLibrary.shared().performChanges {
             let request = PHAssetCreationRequest.forAsset()
-            request.addResource(with: .photo, data: data, options: nil)
+            let options = PHAssetResourceCreationOptions()
+            options.uniformTypeIdentifier = UTType.identifier(for: photo.format)
+            request.addResource(with: .photo, data: photo.data, options: options)
+        }
+    }
+
+}
+
+/// Tiny helper mapping a capture format to its uniform type identifier.
+fileprivate extension UTType {
+    static func identifier(for format: CaptureFormat) -> String {
+        switch format {
+        case .jpeg: return UTType.jpeg.identifier
+        case .heif: return UTType.heif.identifier
+        case .dng:  return UTType.dng.identifier
         }
     }
 }
