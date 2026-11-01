@@ -75,9 +75,9 @@ final class TimelapseRecorder: @unchecked Sendable {
         capture: @escaping () async throws -> CapturedPhoto,
         onProgress: @escaping @Sendable (Int, Int) -> Void
     ) async throws -> URL {
-        lock.lock()
-        cancelledFlag = false
-        lock.unlock()
+        // NSLock.lock/unlock are unavailable from async contexts (Swift 6);
+        // the scoped withLock form is the async-safe equivalent.
+        lock.withLock { cancelledFlag = false }
 
         let fps = plan.outputFPS > 0 ? plan.outputFPS : 30
         let target = min(600, max(60, plan.targetFrames))
