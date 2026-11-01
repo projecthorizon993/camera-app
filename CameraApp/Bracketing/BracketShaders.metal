@@ -40,17 +40,23 @@ kernel void bracket_warp_sample(
     int2 i2 = i0 + int2(0, 1);
     int2 i3 = i0 + int2(1, 1);
 
-    auto clampCoord = [&](int2 c) -> uint2 {
-        return uint2(
-            clamp(c.x, 0, (int)sourceTexture.get_width()  - 1),
-            clamp(c.y, 0, (int)sourceTexture.get_height() - 1)
-        );
-    };
+    uint2 coord00 = uint2(
+        clamp(i0.x, 0, (int)sourceTexture.get_width()  - 1),
+        clamp(i0.y, 0, (int)sourceTexture.get_height() - 1));
+    uint2 coord10 = uint2(
+        clamp(i1.x, 0, (int)sourceTexture.get_width()  - 1),
+        clamp(i1.y, 0, (int)sourceTexture.get_height() - 1));
+    uint2 coord01 = uint2(
+        clamp(i2.x, 0, (int)sourceTexture.get_width()  - 1),
+        clamp(i2.y, 0, (int)sourceTexture.get_height() - 1));
+    uint2 coord11 = uint2(
+        clamp(i3.x, 0, (int)sourceTexture.get_width()  - 1),
+        clamp(i3.y, 0, (int)sourceTexture.get_height() - 1));
 
-    float4 c00 = sourceTexture.read(clampCoord(i0));
-    float4 c10 = sourceTexture.read(clampCoord(i1));
-    float4 c01 = sourceTexture.read(clampCoord(i2));
-    float4 c11 = sourceTexture.read(clampCoord(i3));
+    float4 c00 = sourceTexture.read(coord00);
+    float4 c10 = sourceTexture.read(coord10);
+    float4 c01 = sourceTexture.read(coord01);
+    float4 c11 = sourceTexture.read(coord11);
 
     float4 top    = mix(c00, c10, f.x);
     float4 bottom = mix(c01, c11, f.x);
@@ -139,22 +145,33 @@ kernel void bracket_median_sort(
     float r[9], g[9], b[9];
     int n = 0;
 
-    auto sample = [&](texture2d<float, access::read> tex) {
-        if (n >= (int)count) return;
-        if (gid.x >= tex.get_width() || gid.y >= tex.get_height()) return;
-        float4 c = tex.read(gid);
-        r[n] = c.r; g[n] = c.g; b[n] = c.b; n++;
-    };
-
-    if (count > 0) sample(t0);
-    if (count > 1) sample(t1);
-    if (count > 2) sample(t2);
-    if (count > 3) sample(t3);
-    if (count > 4) sample(t4);
-    if (count > 5) sample(t5);
-    if (count > 6) sample(t6);
-    if (count > 7) sample(t7);
-    if (count > 8) sample(t8);
+    if (count > 0 && gid.x < t0.get_width() && gid.y < t0.get_height()) {
+        float4 c = t0.read(gid); r[n]=c.r; g[n]=c.g; b[n]=c.b; n++;
+    }
+    if (count > 1 && gid.x < t1.get_width() && gid.y < t1.get_height()) {
+        float4 c = t1.read(gid); r[n]=c.r; g[n]=c.g; b[n]=c.b; n++;
+    }
+    if (count > 2 && gid.x < t2.get_width() && gid.y < t2.get_height()) {
+        float4 c = t2.read(gid); r[n]=c.r; g[n]=c.g; b[n]=c.b; n++;
+    }
+    if (count > 3 && gid.x < t3.get_width() && gid.y < t3.get_height()) {
+        float4 c = t3.read(gid); r[n]=c.r; g[n]=c.g; b[n]=c.b; n++;
+    }
+    if (count > 4 && gid.x < t4.get_width() && gid.y < t4.get_height()) {
+        float4 c = t4.read(gid); r[n]=c.r; g[n]=c.g; b[n]=c.b; n++;
+    }
+    if (count > 5 && gid.x < t5.get_width() && gid.y < t5.get_height()) {
+        float4 c = t5.read(gid); r[n]=c.r; g[n]=c.g; b[n]=c.b; n++;
+    }
+    if (count > 6 && gid.x < t6.get_width() && gid.y < t6.get_height()) {
+        float4 c = t6.read(gid); r[n]=c.r; g[n]=c.g; b[n]=c.b; n++;
+    }
+    if (count > 7 && gid.x < t7.get_width() && gid.y < t7.get_height()) {
+        float4 c = t7.read(gid); r[n]=c.r; g[n]=c.g; b[n]=c.b; n++;
+    }
+    if (count > 8 && gid.x < t8.get_width() && gid.y < t8.get_height()) {
+        float4 c = t8.read(gid); r[n]=c.r; g[n]=c.g; b[n]=c.b; n++;
+    }
 
     if (n == 0) { outputTexture.write(float4(0,0,0,1), gid); return; }
 

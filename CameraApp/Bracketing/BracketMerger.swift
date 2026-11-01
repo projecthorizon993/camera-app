@@ -29,12 +29,13 @@ public final class BracketMerger: @unchecked Sendable {
 
     public func merge(frames: [CVPixelBuffer], mode: MergeMode,
                       orientation: PortraitLandscape) async throws -> CVPixelBuffer {
-        // SE-0461: hop off the caller's actor explicitly.
-        let capturedFrames = frames
+        guard device != nil else { throw BracketError.metalUnavailable }
+        // SE-0461: hop off the caller's actor explicitly. Wrap non-Sendable
+        // buffers in PixelBufferBox so they can cross the @Sendable boundary.
+        let boxes = frames.map { PixelBufferBox(buffer: $0) }
         let capturedMode = mode
-        return try await Task.detached(priority: .userInitiated) { [device] in
-            guard let device else { throw BracketError.metalUnavailable }
-            _ = device
+        return try await Task.detached(priority: .userInitiated) {
+            let capturedFrames = boxes.map { $0.buffer }
             return try Self.mergeSync(frames: capturedFrames, mode: capturedMode)
         }.value
     }
